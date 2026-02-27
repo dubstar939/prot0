@@ -1,0 +1,7 @@
+{
+  "name": "Prot0 Neural Suite by 939Pro",
+  "description": "A world-class professional photo editing suite powered by Gemini Neural Engine, featuring generative fill, AI enhancement, and creative transformations.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

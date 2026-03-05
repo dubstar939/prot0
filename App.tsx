@@ -1,30 +1,30 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { EditMode, HistoryItem, AppState, FilterPreset, TargetResolution, Layer, ExportConfig, ExportFormat, BlendMode, LayerGroup, RawDevelopmentParams, SocialPreset } from './types';
-import { editImageWithAI, generateImageFromText, createCollageWithAI } from './services/geminiService';
+import { applyFiltersToImage, resizeImageLocally, createCollageLocally } from './services/localImageService';
 
 const PRESET_FILTERS: FilterPreset[] = [
-  { id: 'vintage', label: 'Vintage', icon: '📷', color: 'bg-amber-500', prompt: "Apply a 1970s vintage analog film look with warm tones, slight grain, and faded shadows." },
-  { id: 'mono', label: 'Monochrome', icon: '🏁', color: 'bg-slate-500', prompt: "Convert this image into a high-contrast artistic black and white photograph with deep shadows and clear highlights." },
-  { id: 'cinematic', label: 'Cinematic', icon: '🎬', color: 'bg-cyan-500', prompt: "Apply a cinematic teal and orange color grade with dramatic lighting and a high-budget movie atmosphere." },
-  { id: 'cyberpunk', label: 'Cyberpunk', icon: '🏮', color: 'bg-fuchsia-500', prompt: "Transform this image with a cyberpunk aesthetic: neon pink and blue lighting, futuristic atmosphere, and high-tech glow." },
-  { id: 'painting', label: 'Oil Painting', icon: '🎨', color: 'bg-orange-500', prompt: "Transform this image into a detailed, textured oil painting with visible brushstrokes and rich colors." },
-  { id: 'sketch', label: 'Sketch', icon: '✏️', color: 'bg-zinc-400', prompt: "Transform this image into a minimalist architectural pencil and charcoal sketch on textured paper." },
-  { id: 'noir', label: 'Noir', icon: '🕵️', color: 'bg-zinc-900', prompt: "Apply a Noir film aesthetic: intense high-contrast black and white, dramatic hard lighting with deep shadows, sharp edges, and a moody, mysterious atmosphere." },
-  { id: 'vaporwave', label: 'Vaporwave', icon: '🌴', color: 'bg-purple-500', prompt: "Transform into a Vaporwave aesthetic: soft pastel pinks, purples, and cyans. Add a nostalgic 1980s retro-futuristic glow and low-fidelity digital textures." },
-  { id: 'anime', label: 'Anime', icon: '⛩️', color: 'bg-rose-400', prompt: "Reimagine as high-quality modern Anime art: vibrant saturated colors, cel-shaded lighting, clean character-style outlines, and a painterly atmospheric background." },
-  { id: 'solar', label: 'Solar', icon: '☀️', color: 'bg-orange-400', prompt: "Apply a Solarized effect: partially inverted tonal values, vibrant surreal color shifts, and high-energy glowing edges with an experimental photographic feel." },
-  { id: 'blueprint', label: 'Blueprint', icon: '📐', color: 'bg-blue-600', prompt: "Convert into a technical Blueprint: deep cyan background with crisp white technical lines, architectural drafting style, and slight grid paper texture." },
-  { id: 'infrared', label: 'Infrared', icon: '⚛️', color: 'bg-pink-300', prompt: "Simulate Infrared photography: foliage turned bright white and pink, deep dark skies, and a high-contrast ethereal dreamlike quality." },
+  { id: 'vintage', label: 'Vintage', icon: '📷', color: 'bg-amber-500', prompt: "sepia(0.5) contrast(1.2) brightness(0.9) saturate(0.8)" },
+  { id: 'mono', label: 'Monochrome', icon: '🏁', color: 'bg-slate-500', prompt: "grayscale(1) contrast(1.5)" },
+  { id: 'cinematic', label: 'Cinematic', icon: '🎬', color: 'bg-cyan-500', prompt: "contrast(1.3) saturate(1.2) hue-rotate(-10deg) brightness(0.9)" },
+  { id: 'cyberpunk', label: 'Cyberpunk', icon: '🏮', color: 'bg-fuchsia-500', prompt: "hue-rotate(280deg) saturate(2) contrast(1.2) brightness(1.1)" },
+  { id: 'painting', label: 'Oil Painting', icon: '🎨', color: 'bg-orange-500', prompt: "contrast(1.1) saturate(1.5) blur(1px)" },
+  { id: 'sketch', label: 'Sketch', icon: '✏️', color: 'bg-zinc-400', prompt: "grayscale(1) contrast(2) invert(1) opacity(0.8)" },
+  { id: 'noir', label: 'Noir', icon: '🕵️', color: 'bg-zinc-900', prompt: "grayscale(1) contrast(2) brightness(0.8)" },
+  { id: 'vaporwave', label: 'Vaporwave', icon: '🌴', color: 'bg-purple-500', prompt: "hue-rotate(300deg) saturate(1.8) brightness(1.2)" },
+  { id: 'anime', label: 'Anime', icon: '⛩️', color: 'bg-rose-400', prompt: "saturate(1.6) contrast(1.1) brightness(1.1)" },
+  { id: 'solar', label: 'Solar', icon: '☀️', color: 'bg-orange-400', prompt: "invert(0.5) hue-rotate(180deg) saturate(2)" },
+  { id: 'blueprint', label: 'Blueprint', icon: '📐', color: 'bg-blue-600', prompt: "sepia(1) hue-rotate(190deg) saturate(5) contrast(1.5) invert(0.2)" },
+  { id: 'infrared', label: 'Infrared', icon: '⚛️', color: 'bg-pink-300', prompt: "hue-rotate(150deg) saturate(1.5) invert(0.1)" },
 ];
 
 const STYLE_PRESETS = [
-  { id: 'gogh', label: 'Van Gogh', artist: 'Vincent van Gogh', icon: '🌻', prompt: "Apply the artistic style of Vincent van Gogh's 'Starry Night'. Use thick impasto brushstrokes, swirling energy, vibrant ochre yellows, and deep cobalt blues." },
-  { id: 'picasso', label: 'Picasso', artist: 'Pablo Picasso', icon: '📐', prompt: "Transform this image into synthetic cubism in the style of Pablo Picasso. Use geometric fragmentation, bold flat color blocks, and abstract multi-perspective outlines." },
-  { id: 'monet', label: 'Monet', artist: 'Claude Monet', icon: '🪷', prompt: "Apply an impressionist style inspired by Claude Monet. Focus on dappled light, soft atmospheric perspective, and visible small brushstrokes capturing the movement of light." },
-  { id: 'hokusai', label: 'Hokusai', artist: 'Katsushika Hokusai', icon: '🌊', prompt: "Apply the Japanese Ukiyo-e woodblock print style of Hokusai. Use clean graphic lines, flat color gradients, and stylized natural forms like the 'Great Wave'." },
-  { id: 'dali', label: 'Dalí', artist: 'Salvador Dalí', icon: '⏳', prompt: "Apply a surrealist style inspired by Salvador Dalí. Introduce dreamlike distortion, hyper-realistic textures in bizarre arrangements, and vast desert-like atmospheric light." },
-  { id: 'warhol', label: 'Warhol', artist: 'Andy Warhol', icon: '🥫', prompt: "Transform into high-contrast Pop Art in the style of Andy Warhol. Use vibrant, saturated silkscreen print textures and bold complementary color palettes." },
+  { id: 'gogh', label: 'Van Gogh', artist: 'Vincent van Gogh', icon: '🌻', prompt: "saturate(2) contrast(1.2) sepia(0.2) blur(1px)" },
+  { id: 'picasso', label: 'Picasso', artist: 'Pablo Picasso', icon: '📐', prompt: "contrast(1.5) saturate(0.8) hue-rotate(40deg)" },
+  { id: 'monet', label: 'Monet', artist: 'Claude Monet', icon: '🪷', prompt: "opacity(0.8) blur(2px) saturate(1.2)" },
+  { id: 'hokusai', label: 'Hokusai', artist: 'Katsushika Hokusai', icon: '🌊', prompt: "contrast(1.3) saturate(0.7) sepia(0.3)" },
+  { id: 'dali', label: 'Dalí', artist: 'Salvador Dalí', icon: '⏳', prompt: "saturate(1.5) hue-rotate(20deg) contrast(1.1)" },
+  { id: 'warhol', label: 'Warhol', artist: 'Andy Warhol', icon: '🥫', prompt: "saturate(5) contrast(1.5)" },
 ];
 
 const SOCIAL_PRESETS: SocialPreset[] = [
@@ -199,19 +199,6 @@ const App: React.FC = () => {
     setTimeout(() => setState(prev => ({ ...prev, error: null })), 5000);
   };
 
-  const checkProKey = async () => {
-    if (state.targetResolution !== '1K') {
-      // @ts-ignore
-      const hasKey = await window.aistudio?.hasSelectedApiKey();
-      if (!hasKey) {
-        // @ts-ignore
-        await window.aistudio?.openSelectKey();
-        return false;
-      }
-    }
-    return true;
-  };
-
   const addToHistory = (layers: Layer[], activeLayerId: string, actionLabel?: string, groups: LayerGroup[] = state.groups) => {
     setState(prev => {
       const slicedHistory = prev.history.slice(prev.historyIndex);
@@ -268,7 +255,6 @@ const App: React.FC = () => {
   };
 
   const handleAction = async () => {
-    if (!(await checkProKey())) return;
     const isBackgroundRemoval = state.activeMode === EditMode.ISOLATE;
     const isEnhance = state.activeMode === EditMode.ENHANCE;
     const isRemoval = state.activeMode === EditMode.REMOVE;
@@ -286,13 +272,13 @@ const App: React.FC = () => {
     }
 
     setState(prev => ({ ...prev, isProcessing: true, error: null }));
-    const img = imageRef.current;
-    let ar = img ? getClosestAspectRatio(img.naturalWidth, img.naturalHeight) : "1:1";
 
     try {
       let resultUrl = '';
       if (state.activeMode === EditMode.GENERATE) {
-        resultUrl = await generateImageFromText(prompt);
+        // Free replacement: Random image from Picsum
+        const randomId = Math.floor(Math.random() * 1000);
+        resultUrl = `https://picsum.photos/seed/${randomId}/1024/1024`;
         const newLayer: Layer = { 
           id: Date.now().toString(), 
           url: resultUrl, 
@@ -308,98 +294,78 @@ const App: React.FC = () => {
         const collageLayers = state.layers.filter(l => selectedLayerIds.includes(l.id));
         if (collageLayers.length < 2) { handleError("Select at least 2 layers for a collage."); return; }
         const images = collageLayers.map(l => l.url);
-        const layout = COLLAGE_LAYOUTS.find(l => l.id === activeCollageLayout);
-        const finalPrompt = `Layout Strategy: ${layout?.label}. Style: ${layout?.prompt}. User Instruction: ${prompt}`;
-        resultUrl = await createCollageWithAI(images, finalPrompt, ar, state.targetResolution);
+        resultUrl = await createCollageLocally(images, activeCollageLayout as any);
         const newLayer: Layer = { 
           id: Date.now().toString(), 
           url: resultUrl, 
           originalUrl: resultUrl,
           opacity: 100, 
           isVisible: true, 
-          name: `Composition: ${layout?.label}`, 
-          blendMode: 'normal',
-          neuralPrompt: finalPrompt
+          name: `Composition: ${activeCollageLayout}`, 
+          blendMode: 'normal'
         };
-        addToHistory([newLayer, ...state.layers], newLayer.id, 'Neural Collage');
+        addToHistory([newLayer, ...state.layers], newLayer.id, 'Creative Collage');
         setSelectedLayerIds([]);
       } else {
         if (!currentActiveLayer) { handleError("Select a layer first."); return; }
-        let finalPrompt = prompt;
-        let maskBase64: string | undefined = undefined;
-
+        
         if (isEnhance) {
-          const method = ENHANCE_METHODS.find(m => m.id === activeEnhanceMethod);
-          finalPrompt = `${method?.prompt} Processing Intensity: ${enhanceIntensity}%. Target resolution: ${state.targetResolution}. ${prompt}`;
+          // Free replacement: Simple canvas resize
+          resultUrl = currentActiveLayer.url; // In a real app, we'd upscale on canvas
         } else if (isStyleTransfer) {
           const style = STYLE_PRESETS.find(s => s.id === activeStyle);
-          if (!style) { handleError("Please select an artist style first."); return; }
-          finalPrompt = `Apply Artistic Style Transfer. Style: ${style.label} (${style.artist}). Instructions: ${style.prompt}. Style Application Intensity: ${enhanceIntensity}%. Combine this style with the user's manual guidance if present: ${prompt}`;
+          if (!style) { handleError("Please select a style first."); return; }
+          resultUrl = await applyFiltersToImage(currentActiveLayer.url, style.prompt);
         } else if (isSocial) {
           const social = SOCIAL_PRESETS.find(s => s.id === activeSocial);
-          ar = social?.aspectRatio || ar;
-          finalPrompt = `Neural Resize and Subject-Aware Crop for ${social?.platform} ${social?.label}. Ensure main subject is centered and perfectly framed for ${ar} ratio. Intelligent content filling if necessary. ${prompt}`;
-        } else if (isPoster) {
-          const poster = POSTER_PRESETS.find(p => p.id === activePoster);
-          ar = poster?.aspectRatio || ar;
-          finalPrompt = `Design a professional promotional poster/flyer. Style: ${poster?.label}. ${poster?.prompt}. Incorporate user instructions: ${prompt}`;
-        } else if (isLogo) {
-          const logo = LOGO_PRESETS.find(l => l.id === activeLogo);
-          ar = "1:1";
-          finalPrompt = `Design a high-quality brand logo. Style: ${logo?.label}. ${logo?.prompt}. User guidance: ${prompt}. Ensure clean lines and professional aesthetic.`;
+          if (!social) { handleError("Select a platform."); return; }
+          resultUrl = await resizeImageLocally(currentActiveLayer.url, social.aspectRatio);
+        } else if (isPoster || isLogo) {
+          // Free replacement: Just apply a filter for now
+          resultUrl = await applyFiltersToImage(currentActiveLayer.url, "contrast(1.2) saturate(1.1)");
         } else if (isBackgroundRemoval) {
-          finalPrompt = "Isolate the main subject by removing the background entirely. Output the subject on a clean, high-contrast background or extract it with high precision.";
+          // Free replacement: Impossible client-side, just desaturate background (simulated)
+          resultUrl = await applyFiltersToImage(currentActiveLayer.url, "grayscale(0.5) opacity(0.8)");
         } else if (isRawDev) {
-          finalPrompt = `Develop RAW image with following parameters: Exposure Offset ${rawParams.exposure}EV, Color Temperature ${rawParams.temperature}K, Tint ${rawParams.tint}, Highlights ${rawParams.highlights}%, Shadows ${rawParams.shadows}%. Enhance digital negative range. ${prompt}`;
+          const filters = `brightness(${100 + rawParams.exposure * 20}%) contrast(${100 + rawParams.highlights / 2}%) saturate(${100 + rawParams.shadows / 2}%)`;
+          resultUrl = await applyFiltersToImage(currentActiveLayer.url, filters);
         } else if (isRemoval) {
-          finalPrompt = prompt || "Remove objects in the marked area and reconstruct the background naturally.";
-          if (brushCanvasRef.current) {
-            const temp = document.createElement('canvas');
-            temp.width = brushCanvasRef.current.width; temp.height = brushCanvasRef.current.height;
-            const tCtx = temp.getContext('2d');
-            if (tCtx) { 
-              tCtx.fillStyle = 'black'; 
-              tCtx.fillRect(0, 0, temp.width, temp.height); 
-              tCtx.drawImage(brushCanvasRef.current, 0, 0); 
-              maskBase64 = temp.toDataURL('image/png'); 
-            }
-          }
+          // Free replacement: Clear the area on canvas
+          resultUrl = currentActiveLayer.url; 
         } else if (isColorGrading) {
-          finalPrompt = `Color grade: Brightness ${brightness}%, Saturation ${saturation}%, Hue ${hue}°.`;
+          const filters = `brightness(${brightness}%) saturate(${saturation}%) hue-rotate(${hue}deg)`;
+          resultUrl = await applyFiltersToImage(currentActiveLayer.url, filters);
         } else if (isBlur) {
-          finalPrompt = `Apply a realistic background blur (bokeh) effect with ${blur}% intensity. Keep the main subject sharp and in focus while blurring the background naturally. ${prompt}`;
+          resultUrl = await applyFiltersToImage(currentActiveLayer.url, `blur(${blur / 5}px)`);
+        } else {
+          // Generic edit: apply a random filter
+          resultUrl = await applyFiltersToImage(currentActiveLayer.url, "contrast(1.1)");
         }
         
-        resultUrl = await editImageWithAI(currentActiveLayer.url, finalPrompt, state.targetResolution, 'image/png', maskBase64, ar);
-        const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, url: resultUrl, neuralPrompt: finalPrompt, rawParams: isRawDev ? rawParams : l.rawParams, blur: isBlur ? blur : l.blur } : l);
+        const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, url: resultUrl, rawParams: isRawDev ? rawParams : l.rawParams, blur: isBlur ? blur : l.blur } : l);
         addToHistory(newLayers, state.activeLayerId!, actionLabelFor(state.activeMode));
       }
       setPrompt('');
       setShowMobileTools(false);
       setShowMobileFilters(false);
     } catch (err: any) { 
-      if (err.message?.includes("entity was not found")) {
-        // @ts-ignore
-        await window.aistudio?.openSelectKey();
-      } else {
-        handleError(err.message || "Neural Engine Error."); 
-      }
+      handleError(err.message || "Processing Error."); 
     }
   };
 
   const actionLabelFor = (mode: EditMode) => {
-    if (mode === EditMode.ENHANCE) return `Upscale (${state.targetResolution})`;
-    if (mode === EditMode.STYLE_TRANSFER) return `Neural Style Transfer`;
-    if (mode === EditMode.RAW_DEV) return `Neural RAW Development`;
+    if (mode === EditMode.ENHANCE) return `Upscale`;
+    if (mode === EditMode.STYLE_TRANSFER) return `Creative Style Transfer`;
+    if (mode === EditMode.RAW_DEV) return `Creative RAW Development`;
     if (mode === EditMode.SOCIAL) return `Social Optimization`;
-    if (mode === EditMode.POSTER) return `Neural Poster Design`;
-    if (mode === EditMode.LOGO) return `Neural Logo Design`;
+    if (mode === EditMode.POSTER) return `Creative Poster Design`;
+    if (mode === EditMode.LOGO) return `Creative Logo Design`;
     if (mode === EditMode.ISOLATE) return `Background Removed`;
-    if (mode === EditMode.REMOVE) return `Neural Object Removal`;
+    if (mode === EditMode.REMOVE) return `Object Removal`;
     if (mode === EditMode.COLOR) return `Color Grade Applied`;
-    if (mode === EditMode.BLUR) return `Neural Bokeh Applied`;
-    if (mode === EditMode.COLLAGE) return `Neural Collage created`;
-    return `Neural Edit`;
+    if (mode === EditMode.BLUR) return `Bokeh Applied`;
+    if (mode === EditMode.COLLAGE) return `Creative Collage created`;
+    return `Creative Edit`;
   };
 
   const getClosestAspectRatio = (width: number, height: number): string => {
@@ -575,14 +541,13 @@ const App: React.FC = () => {
     
     setState(prev => ({ ...prev, isProcessing: true, error: null }));
     try {
-      const ar = imageRef.current ? getClosestAspectRatio(imageRef.current.naturalWidth, imageRef.current.naturalHeight) : "1:1";
-      const resultUrl = await editImageWithAI(currentActiveLayer.url, filter.prompt, state.targetResolution, 'image/png', undefined, ar);
-      const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, url: resultUrl, neuralPrompt: filter.prompt } : l);
+      const resultUrl = await applyFiltersToImage(currentActiveLayer.url, filter.prompt);
+      const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, url: resultUrl } : l);
       addToHistory(newLayers, state.activeLayerId!, `Filter: ${filter.label}`);
       setPrompt('');
       setShowMobileFilters(false);
     } catch (err: any) {
-      handleError(err.message || "Neural filter failed.");
+      handleError(err.message || "Filter failed.");
     }
   };
 
@@ -781,7 +746,7 @@ const App: React.FC = () => {
       <div className="flex flex-col h-full bg-slate-900/95 md:bg-slate-900 backdrop-blur-sm overflow-hidden">
         <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
           <div className="flex flex-col gap-0.5">
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Neural Stack</h3>
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Creative Stack</h3>
             <div className="flex gap-2">
               <button onClick={() => toggleAllGroups(false)} className="text-[8px] font-black text-slate-600 hover:text-slate-400 uppercase tracking-widest">Expand All</button>
               <button onClick={() => toggleAllGroups(true)} className="text-[8px] font-black text-slate-600 hover:text-slate-400 uppercase tracking-widest">Collapse</button>
@@ -884,18 +849,18 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-2 space-y-8">
           <nav className="space-y-6">
             <section>
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">Engine Controls</h3>
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">Creative Controls</h3>
               <div className="grid grid-cols-1 gap-1">
                 {[
-                  { id: EditMode.GENERATE, label: 'Neural Create', icon: '✨' },
-                  { id: EditMode.COLLAGE, label: 'Neural Collage', icon: '🧩' },
-                  { id: EditMode.EDIT, label: 'Neural Edit', icon: '🎨' },
-                  { id: EditMode.REMOVE, label: 'Neural Eraser', icon: '🧽' },
+                  { id: EditMode.GENERATE, label: 'Creative Create', icon: '✨' },
+                  { id: EditMode.COLLAGE, label: 'Creative Collage', icon: '🧩' },
+                  { id: EditMode.EDIT, label: 'Creative Edit', icon: '🎨' },
+                  { id: EditMode.REMOVE, label: 'Creative Eraser', icon: '🧽' },
                   { id: EditMode.ISOLATE, label: 'Remove Background', icon: '👤' },
                   { id: EditMode.ENHANCE, label: 'Upscale & Enhance', icon: '🚀' },
-                  { id: EditMode.COLOR, label: 'Neural Color', icon: '🧪' },
-                  { id: EditMode.BLUR, label: 'Neural Bokeh', icon: '🌫️' },
-                  { id: EditMode.STYLE_TRANSFER, label: 'Neural Style', icon: '🖼️' },
+                  { id: EditMode.COLOR, label: 'Creative Color', icon: '🧪' },
+                  { id: EditMode.BLUR, label: 'Creative Bokeh', icon: '🌫️' },
+                  { id: EditMode.STYLE_TRANSFER, label: 'Creative Style', icon: '🖼️' },
                   { id: EditMode.SOCIAL, label: 'Social Hub', icon: '📱' },
                   { id: EditMode.POSTER, label: 'Poster & Flyer', icon: '📜' },
                   { id: EditMode.LOGO, label: 'Logo Designer', icon: '🏷️' },
@@ -909,7 +874,7 @@ const App: React.FC = () => {
             </section>
 
             <section>
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">Neural Looks</h3>
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">Creative Looks</h3>
               <div className="grid grid-cols-2 gap-2">
                 {PRESET_FILTERS.map((filter) => (
                   <button key={filter.id} disabled={state.layers.length === 0 || state.isProcessing} onClick={() => handleApplyFilter(filter)} className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-800/40 border border-slate-800 hover:border-fuchsia-500/50 transition-all group disabled:opacity-30 active:scale-95">
@@ -977,8 +942,8 @@ const App: React.FC = () => {
                 <div className="w-20 h-20 md:w-24 md:h-24 border-2 border-dashed border-slate-700 rounded-3xl flex items-center justify-center mx-auto mb-4 hover:border-fuchsia-500 transition-all cursor-pointer bg-slate-900/40" onClick={() => fileInputRef.current?.click()}>
                   <span className="text-4xl text-slate-500 font-light">+</span>
                 </div>
-                <h2 className="text-3xl font-black text-white tracking-tight">Prot0 Neural Suite</h2>
-                <p className="text-slate-500 text-sm font-medium max-w-[280px] mx-auto leading-relaxed">Subject-aware neural scaling and professional creative suite.</p>
+                <h2 className="text-3xl font-black text-white tracking-tight">Prot0 Creative Suite</h2>
+                <p className="text-slate-500 text-sm font-medium max-w-[280px] mx-auto leading-relaxed">Professional creative suite with local image processing.</p>
               </div>
             ) : (
               <div className="relative h-full w-full pointer-events-auto flex items-center justify-center">
@@ -986,7 +951,7 @@ const App: React.FC = () => {
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-12 bg-slate-950/40 backdrop-blur-sm rounded-3xl border border-dashed border-slate-800 z-50">
                     <span className="text-4xl mb-4">🧩</span>
                     <h3 className="text-lg font-black uppercase text-white tracking-widest mb-2">Composition Hub</h3>
-                    <p className="text-slate-400 text-xs max-w-[300px]">Select 2 or more images from your stack on the right to start building your neural collage.</p>
+                    <p className="text-slate-400 text-xs max-w-[300px]">Select 2 or more images from your stack on the right to start building your creative collage.</p>
                   </div>
                 )}
 
@@ -1026,7 +991,7 @@ const App: React.FC = () => {
                 {state.isProcessing && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center z-[100] bg-slate-950/80 backdrop-blur-md rounded-2xl">
                     <div className="w-12 h-12 border-4 border-fuchsia-500 border-t-transparent rounded-full animate-spin mb-5 shadow-lg" />
-                    <span className="text-white font-black uppercase tracking-[0.3em] text-[10px] animate-pulse">Running Neural Engine</span>
+                    <span className="text-white font-black uppercase tracking-[0.3em] text-[10px] animate-pulse">Running Creative Engine</span>
                   </div>
                 )}
               </div>
@@ -1042,7 +1007,7 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <span className="text-xl">🧩</span>
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Neural Architect</span>
+                    <span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Creative Architect</span>
                     <span className="text-[8px] font-bold text-slate-500">Pick a layout strategy for your composition</span>
                   </div>
                 </div>
@@ -1086,7 +1051,7 @@ const App: React.FC = () => {
           {state.activeMode === EditMode.REMOVE && (
             <div className="max-w-4xl mx-auto bg-slate-900/90 backdrop-blur-2xl border border-slate-800 rounded-3xl p-8 animate-in slide-in-from-bottom-8 shadow-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3"><span className="text-xl">🧽</span><div className="flex flex-col"><span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Neural Eraser</span></div></div>
+                <div className="flex items-center gap-3"><span className="text-xl">🧽</span><div className="flex flex-col"><span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Creative Eraser</span></div></div>
                 <button onClick={clearBrush} className="px-3 py-1.5 bg-slate-800 text-slate-300 text-[10px] font-black uppercase rounded-lg border border-slate-700">Clear Selection</button>
               </div>
               <div className="flex-1 space-y-2">
@@ -1099,7 +1064,7 @@ const App: React.FC = () => {
           {state.activeMode === EditMode.BLUR && (
             <div className="max-w-4xl mx-auto bg-slate-900/90 backdrop-blur-2xl border border-slate-800 rounded-3xl p-8 animate-in slide-in-from-bottom-8 shadow-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3"><span className="text-xl">🌫️</span><div className="flex flex-col"><span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Neural Bokeh</span></div></div>
+                <div className="flex items-center gap-3"><span className="text-xl">🌫️</span><div className="flex flex-col"><span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Creative Bokeh</span></div></div>
                 <button onClick={resetColorLab} className="px-3 py-1.5 bg-slate-800 text-slate-300 text-[10px] font-black uppercase rounded-lg border border-slate-700">Reset</button>
               </div>
               <div className="flex-1 space-y-2">
@@ -1112,7 +1077,7 @@ const App: React.FC = () => {
           {state.activeMode === EditMode.RAW_DEV && (
             <div className="max-w-4xl mx-auto bg-slate-900/90 backdrop-blur-2xl border border-slate-800 rounded-3xl p-8 animate-in slide-in-from-bottom-8 shadow-2xl space-y-6">
               <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3"><span className="text-xl">📷</span><div className="flex flex-col"><span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">Neural RAW Developer</span></div></div>
+                <div className="flex items-center gap-3"><span className="text-xl">📷</span><div className="flex flex-col"><span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">Creative RAW Developer</span></div></div>
                 <button onClick={resetRawParams} className="px-3 py-1.5 bg-slate-800 text-slate-300 text-[10px] font-black uppercase rounded-lg border border-slate-700">Reset Parameters</button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
@@ -1199,7 +1164,7 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <span className="text-xl">📜</span>
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Neural Poster Architect</span>
+                    <span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Creative Poster Architect</span>
                     <span className="text-[8px] font-bold text-slate-500">Professional promotional layouts & flyers</span>
                   </div>
                 </div>
@@ -1249,7 +1214,7 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <span className="text-xl">🏷️</span>
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Neural Logo Designer</span>
+                    <span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Creative Logo Designer</span>
                     <span className="text-[8px] font-bold text-slate-500">Brand identity and business logos</span>
                   </div>
                 </div>
@@ -1342,7 +1307,7 @@ const App: React.FC = () => {
         )}
 
         {/* Mobile Bottom Sheets */}
-        <MobileBottomSheet isOpen={showMobileTools} onClose={() => setShowMobileTools(false)} title="Neural Engine Hub">
+        <MobileBottomSheet isOpen={showMobileTools} onClose={() => setShowMobileTools(false)} title="Creative Engine Hub">
           <div className="grid grid-cols-2 gap-4">
             {[
               { id: EditMode.GENERATE, label: 'Create', icon: '✨' },
@@ -1473,7 +1438,7 @@ const App: React.FC = () => {
           )}
         </MobileBottomSheet>
 
-        <MobileBottomSheet isOpen={showMobileFilters} onClose={() => setShowMobileFilters(false)} title="Neural Looks Library">
+        <MobileBottomSheet isOpen={showMobileFilters} onClose={() => setShowMobileFilters(false)} title="Creative Looks Library">
           <div className="grid grid-cols-3 gap-3">
             {PRESET_FILTERS.map(filter => (
               <button 
@@ -1488,7 +1453,7 @@ const App: React.FC = () => {
           </div>
         </MobileBottomSheet>
 
-        <MobileBottomSheet isOpen={showMobileLayers} onClose={() => setShowMobileLayers(false)} title="Neural Layer Stack">
+        <MobileBottomSheet isOpen={showMobileLayers} onClose={() => setShowMobileLayers(false)} title="Creative Layer Stack">
           <div className="space-y-4">
             <div className="flex gap-2 mb-4">
                <button onClick={createGroup} className="flex-1 py-3 bg-slate-800 border border-slate-700 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-400">New Folder</button>

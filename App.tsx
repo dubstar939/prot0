@@ -35,6 +35,22 @@ const SOCIAL_PRESETS: SocialPreset[] = [
   { id: 'fb_cover', platform: 'Facebook', label: 'Cover', aspectRatio: '16:9', icon: '👥', description: 'Header optimization for profiles.' },
 ];
 
+const POSTER_PRESETS = [
+  { id: 'event_bold', label: 'Bold Event', icon: '📢', aspectRatio: '2:3', prompt: "Create a high-impact event poster with bold typography, vibrant colors, and dynamic composition. Focus on readability and visual hierarchy." },
+  { id: 'flyer_minimal', label: 'Minimal Flyer', icon: '📄', aspectRatio: '3:4', prompt: "Design a clean, minimalist promotional flyer with plenty of white space, elegant sans-serif fonts, and a single striking visual element." },
+  { id: 'concert_retro', label: 'Retro Concert', icon: '🎸', aspectRatio: '2:3', prompt: "Design a vintage-style concert poster with distressed textures, psychedelic colors, and retro 70s typography." },
+  { id: 'promo_modern', label: 'Modern Promo', icon: '🏷️', aspectRatio: '4:5', prompt: "Create a sleek, modern promotional poster with geometric shapes, high-contrast photography, and professional layout." },
+  { id: 'festival_vibrant', label: 'Vibrant Festival', icon: '🎡', aspectRatio: '2:3', prompt: "Design a colorful, energetic festival poster with layered graphics, organic shapes, and a festive atmosphere." },
+];
+
+const LOGO_PRESETS = [
+  { id: 'logo_minimal', label: 'Minimalist', icon: '⚪', prompt: "Design a clean, minimalist logo focusing on geometric simplicity and negative space. Professional and timeless." },
+  { id: 'logo_tech', label: 'Tech / Modern', icon: '💻', prompt: "Create a futuristic, high-tech logo with sharp angles, gradients, and a sense of innovation and speed." },
+  { id: 'logo_luxury', label: 'Luxury / Serif', icon: '💎', prompt: "Design a sophisticated luxury brand logo using elegant serif typography, gold accents, and a refined, premium feel." },
+  { id: 'logo_organic', label: 'Organic / Nature', icon: '🌿', prompt: "Create an organic, nature-inspired logo with soft curves, earthy tones, and a hand-drawn or natural aesthetic." },
+  { id: 'logo_abstract', label: 'Abstract Icon', icon: '🌀', prompt: "Design a unique abstract logo icon that represents fluid movement and connectivity. Modern and versatile." },
+];
+
 const COLLAGE_LAYOUTS = [
   { id: 'grid', label: 'Perfect Grid', icon: '▦', prompt: "Arrange images in a structured, symmetric grid with clean white gutters and minimalist framing." },
   { id: 'mosaic', label: 'Modern Mosaic', icon: '▩', prompt: "Create a dynamic mosaic layout with varying image sizes and interlocking rectangular frames for a busy, high-energy feel." },
@@ -124,6 +140,8 @@ const App: React.FC = () => {
   const [isComparing, setIsComparing] = useState(false);
   const [activeStyle, setActiveStyle] = useState<string | null>(null);
   const [activeSocial, setActiveSocial] = useState<string | null>(null);
+  const [activePoster, setActivePoster] = useState<string | null>(null);
+  const [activeLogo, setActiveLogo] = useState<string | null>(null);
   const [activeCollageLayout, setActiveCollageLayout] = useState<string>('grid');
   
   // Drag and Drop State
@@ -259,9 +277,11 @@ const App: React.FC = () => {
     const isRawDev = state.activeMode === EditMode.RAW_DEV;
     const isStyleTransfer = state.activeMode === EditMode.STYLE_TRANSFER;
     const isSocial = state.activeMode === EditMode.SOCIAL;
+    const isPoster = state.activeMode === EditMode.POSTER;
+    const isLogo = state.activeMode === EditMode.LOGO;
     const isCollage = state.activeMode === EditMode.COLLAGE;
 
-    if (!prompt.trim() && !isBackgroundRemoval && !isEnhance && !isRemoval && !isColorGrading && !isBlur && !isRawDev && !isStyleTransfer && !isSocial && !isCollage && state.activeMode !== EditMode.GENERATE) { 
+    if (!prompt.trim() && !isBackgroundRemoval && !isEnhance && !isRemoval && !isColorGrading && !isBlur && !isRawDev && !isStyleTransfer && !isSocial && !isPoster && !isLogo && !isCollage && state.activeMode !== EditMode.GENERATE) { 
       handleError("Please describe a transformation or select a tool."); return; 
     }
 
@@ -319,6 +339,14 @@ const App: React.FC = () => {
           const social = SOCIAL_PRESETS.find(s => s.id === activeSocial);
           ar = social?.aspectRatio || ar;
           finalPrompt = `Neural Resize and Subject-Aware Crop for ${social?.platform} ${social?.label}. Ensure main subject is centered and perfectly framed for ${ar} ratio. Intelligent content filling if necessary. ${prompt}`;
+        } else if (isPoster) {
+          const poster = POSTER_PRESETS.find(p => p.id === activePoster);
+          ar = poster?.aspectRatio || ar;
+          finalPrompt = `Design a professional promotional poster/flyer. Style: ${poster?.label}. ${poster?.prompt}. Incorporate user instructions: ${prompt}`;
+        } else if (isLogo) {
+          const logo = LOGO_PRESETS.find(l => l.id === activeLogo);
+          ar = "1:1";
+          finalPrompt = `Design a high-quality brand logo. Style: ${logo?.label}. ${logo?.prompt}. User guidance: ${prompt}. Ensure clean lines and professional aesthetic.`;
         } else if (isBackgroundRemoval) {
           finalPrompt = "Isolate the main subject by removing the background entirely. Output the subject on a clean, high-contrast background or extract it with high precision.";
         } else if (isRawDev) {
@@ -364,6 +392,8 @@ const App: React.FC = () => {
     if (mode === EditMode.STYLE_TRANSFER) return `Neural Style Transfer`;
     if (mode === EditMode.RAW_DEV) return `Neural RAW Development`;
     if (mode === EditMode.SOCIAL) return `Social Optimization`;
+    if (mode === EditMode.POSTER) return `Neural Poster Design`;
+    if (mode === EditMode.LOGO) return `Neural Logo Design`;
     if (mode === EditMode.ISOLATE) return `Background Removed`;
     if (mode === EditMode.REMOVE) return `Neural Object Removal`;
     if (mode === EditMode.COLOR) return `Color Grade Applied`;
@@ -813,6 +843,9 @@ const App: React.FC = () => {
     if (mode !== EditMode.REMOVE) clearBrush();
     if (mode !== EditMode.COLOR && mode !== EditMode.RAW_DEV && mode !== EditMode.BLUR) resetColorLab();
     if (mode !== EditMode.COLLAGE) setSelectedLayerIds([]);
+    if (mode !== EditMode.SOCIAL) setActiveSocial(null);
+    if (mode !== EditMode.POSTER) setActivePoster(null);
+    if (mode !== EditMode.LOGO) setActiveLogo(null);
   };
 
   const closeMobilePanels = () => {
@@ -864,6 +897,8 @@ const App: React.FC = () => {
                   { id: EditMode.BLUR, label: 'Neural Bokeh', icon: '🌫️' },
                   { id: EditMode.STYLE_TRANSFER, label: 'Neural Style', icon: '🖼️' },
                   { id: EditMode.SOCIAL, label: 'Social Hub', icon: '📱' },
+                  { id: EditMode.POSTER, label: 'Poster & Flyer', icon: '📜' },
+                  { id: EditMode.LOGO, label: 'Logo Designer', icon: '🏷️' },
                   { id: EditMode.RAW_DEV, label: 'RAW Developer', icon: '📷', show: currentActiveLayer?.isRaw },
                 ].filter(m => m.show !== false).map((mode) => (
                   <button key={mode.id} onClick={() => handleModeSwitch(mode.id as EditMode)} className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all ${state.activeMode === mode.id ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/20' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
@@ -1157,8 +1192,108 @@ const App: React.FC = () => {
               </div>
             </div>
           )}
+          
+          {state.activeMode === EditMode.POSTER && (
+            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-2xl border border-slate-800 rounded-3xl p-8 animate-in slide-in-from-bottom-8 shadow-2xl space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">📜</span>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Neural Poster Architect</span>
+                    <span className="text-[8px] font-bold text-slate-500">Professional promotional layouts & flyers</span>
+                  </div>
+                </div>
+                {activePoster && (
+                  <div className="text-[9px] font-black text-fuchsia-400 uppercase tracking-widest bg-fuchsia-500/10 px-3 py-1.5 rounded-full border border-fuchsia-500/20">
+                    Style: {POSTER_PRESETS.find(p => p.id === activePoster)?.label}
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-5 gap-3">
+                {POSTER_PRESETS.map(poster => (
+                  <button 
+                    key={poster.id} 
+                    onClick={() => setActivePoster(poster.id)} 
+                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${activePoster === poster.id ? 'bg-fuchsia-600/10 border-fuchsia-500 shadow-lg' : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'}`}
+                  >
+                    <span className="text-2xl mb-1">{poster.icon}</span>
+                    <span className="text-[9px] font-black uppercase tracking-tight text-slate-100">{poster.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-3">
+                 <div className="h-px bg-slate-800" />
+                 <div className="flex gap-3">
+                    <textarea 
+                      value={prompt} 
+                      onChange={(e) => setPrompt(e.target.value)}
+                      placeholder="Event details, headlines, or specific style guidance..."
+                      className="flex-1 bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-inner"
+                      rows={2}
+                    />
+                    <button 
+                      onClick={handleAction} 
+                      disabled={state.isProcessing || !activePoster} 
+                      className="px-8 bg-fuchsia-600 rounded-xl text-white font-black uppercase text-[10px] tracking-widest hover:bg-fuchsia-500 disabled:opacity-30 transition-all shadow-xl active:scale-95"
+                    >
+                      Design Poster
+                    </button>
+                 </div>
+              </div>
+            </div>
+          )}
 
-          {state.activeMode !== EditMode.COLLAGE && state.activeMode !== EditMode.SOCIAL && (
+          {state.activeMode === EditMode.LOGO && (
+            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-2xl border border-slate-800 rounded-3xl p-8 animate-in slide-in-from-bottom-8 shadow-2xl space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🏷️</span>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Neural Logo Designer</span>
+                    <span className="text-[8px] font-bold text-slate-500">Brand identity and business logos</span>
+                  </div>
+                </div>
+                {activeLogo && (
+                  <div className="text-[9px] font-black text-fuchsia-400 uppercase tracking-widest bg-fuchsia-500/10 px-3 py-1.5 rounded-full border border-fuchsia-500/20">
+                    Style: {LOGO_PRESETS.find(l => l.id === activeLogo)?.label}
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-5 gap-3">
+                {LOGO_PRESETS.map(logo => (
+                  <button 
+                    key={logo.id} 
+                    onClick={() => setActiveLogo(logo.id)} 
+                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${activeLogo === logo.id ? 'bg-fuchsia-600/10 border-fuchsia-500 shadow-lg' : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'}`}
+                  >
+                    <span className="text-2xl mb-1">{logo.icon}</span>
+                    <span className="text-[9px] font-black uppercase tracking-tight text-slate-100">{logo.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-3">
+                 <div className="h-px bg-slate-800" />
+                 <div className="flex gap-3">
+                    <textarea 
+                      value={prompt} 
+                      onChange={(e) => setPrompt(e.target.value)}
+                      placeholder="Business name, industry, or specific logo concepts..."
+                      className="flex-1 bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-inner"
+                      rows={2}
+                    />
+                    <button 
+                      onClick={handleAction} 
+                      disabled={state.isProcessing || !activeLogo} 
+                      className="px-8 bg-fuchsia-600 rounded-xl text-white font-black uppercase text-[10px] tracking-widest hover:bg-fuchsia-500 disabled:opacity-30 transition-all shadow-xl active:scale-95"
+                    >
+                      Design Logo
+                    </button>
+                 </div>
+              </div>
+            </div>
+          )}
+
+          {state.activeMode !== EditMode.COLLAGE && state.activeMode !== EditMode.SOCIAL && state.activeMode !== EditMode.POSTER && state.activeMode !== EditMode.LOGO && (
             <div className="max-w-3xl mx-auto flex flex-col gap-3">
               <div className="flex gap-2">
                   <textarea 
@@ -1220,6 +1355,8 @@ const App: React.FC = () => {
               { id: EditMode.BLUR, label: 'Bokeh', icon: '🌫️' },
               { id: EditMode.STYLE_TRANSFER, label: 'Style', icon: '🖼️' },
               { id: EditMode.SOCIAL, label: 'Social', icon: '📱' },
+              { id: EditMode.POSTER, label: 'Poster', icon: '📜' },
+              { id: EditMode.LOGO, label: 'Logo', icon: '🏷️' },
             ].map(mode => (
               <button 
                 key={mode.id} 
@@ -1275,6 +1412,46 @@ const App: React.FC = () => {
                         <div className="flex flex-col items-start">
                           <span className="text-[9px] font-black uppercase tracking-tight text-slate-100">{social.label}</span>
                           <span className="text-[7px] font-bold text-slate-500 uppercase tracking-tighter">{social.platform}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="h-px bg-slate-800" />
+                </div>
+              )}
+
+              {state.activeMode === EditMode.POSTER && (
+                <div className="space-y-6 mb-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    {POSTER_PRESETS.map(poster => (
+                      <button 
+                        key={poster.id} 
+                        onClick={() => setActivePoster(poster.id)} 
+                        className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${activePoster === poster.id ? 'bg-fuchsia-600/10 border-fuchsia-500' : 'bg-slate-950/40 border-slate-800'}`}
+                      >
+                        <span className="text-xl">{poster.icon}</span>
+                        <div className="flex flex-col items-start">
+                          <span className="text-[9px] font-black uppercase tracking-tight text-slate-100">{poster.label}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="h-px bg-slate-800" />
+                </div>
+              )}
+
+              {state.activeMode === EditMode.LOGO && (
+                <div className="space-y-6 mb-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    {LOGO_PRESETS.map(logo => (
+                      <button 
+                        key={logo.id} 
+                        onClick={() => setActiveLogo(logo.id)} 
+                        className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${activeLogo === logo.id ? 'bg-fuchsia-600/10 border-fuchsia-500' : 'bg-slate-950/40 border-slate-800'}`}
+                      >
+                        <span className="text-xl">{logo.icon}</span>
+                        <div className="flex flex-col items-start">
+                          <span className="text-[9px] font-black uppercase tracking-tight text-slate-100">{logo.label}</span>
                         </div>
                       </button>
                     ))}

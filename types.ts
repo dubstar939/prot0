@@ -52,7 +52,9 @@ export enum EditMode {
   SOCIAL = 'SOCIAL',
   CROP = 'CROP',
   LAYERS = 'LAYERS',
-  COLLAGE = 'COLLAGE'
+  COLLAGE = 'COLLAGE',
+  POSTER = 'POSTER',
+  LOGO = 'LOGO'
 }
 
 export type TargetResolution = '1K' | '2K' | '4K';

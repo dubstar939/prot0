@@ -181,3 +181,40 @@ export const createCollageLocally = async (
     }
   });
 };
+
+export const cropImageLocally = async (
+  imageUrl: string,
+  cropRect: { x: number; y: number; width: number; height: number }
+): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error("Could not get canvas context"));
+        return;
+      }
+
+      canvas.width = cropRect.width;
+      canvas.height = cropRect.height;
+
+      ctx.drawImage(
+        img,
+        cropRect.x,
+        cropRect.y,
+        cropRect.width,
+        cropRect.height,
+        0,
+        0,
+        cropRect.width,
+        cropRect.height
+      );
+
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => reject(new Error("Failed to load image"));
+    img.src = imageUrl;
+  });
+};

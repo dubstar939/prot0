@@ -20,7 +20,7 @@ export interface Layer {
   groupId?: string;
   neuralPrompt?: string; // The last prompt applied to this layer
   isRaw?: boolean; // Indicates if the layer originated from a RAW file
-  rawParams?: RawDevelopmentParams; // Parameters for the Neural RAW Developer
+  rawParams?: RawDevelopmentParams; // Parameters for the Creative RAW Developer
   blur?: number; // Blur intensity (0-100)
 }
 

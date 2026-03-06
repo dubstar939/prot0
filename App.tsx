@@ -128,9 +128,12 @@ const App: React.FC = () => {
   const [showMobileTools, setShowMobileTools] = useState(false);
   const [showMobileSuite, setShowMobileSuite] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [exportConfig, setExportConfig] = useState<ExportConfig>({ format: 'image/jpeg', quality: 90 });
   const [brushSize, setBrushSize] = useState(40);
   const [isBrushing, setIsBrushing] = useState(false);
+  const [brushHistory, setBrushHistory] = useState<string[]>([]);
+  const [brushHistoryIndex, setBrushHistoryIndex] = useState(-1);
   
   const [brightness, setBrightness] = useState(100);
   const [saturation, setSaturation] = useState(100);
@@ -215,6 +218,54 @@ const App: React.FC = () => {
       const ctx = canvas.getContext('2d');
       if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
+    setBrushHistory([]);
+    setBrushHistoryIndex(-1);
+  };
+
+  const saveBrushState = () => {
+    const canvas = brushCanvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL();
+    const newHistory = brushHistory.slice(0, brushHistoryIndex + 1);
+    newHistory.push(dataUrl);
+    setBrushHistory(newHistory);
+    setBrushHistoryIndex(newHistory.length - 1);
+  };
+
+  const undoBrush = useCallback(() => {
+    if (brushHistoryIndex > 0) {
+      const newIndex = brushHistoryIndex - 1;
+      setBrushHistoryIndex(newIndex);
+      applyBrushHistory(brushHistory[newIndex]);
+    } else if (brushHistoryIndex === 0) {
+      setBrushHistoryIndex(-1);
+      const canvas = brushCanvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+  }, [brushHistoryIndex, brushHistory]);
+
+  const redoBrush = useCallback(() => {
+    if (brushHistoryIndex < brushHistory.length - 1) {
+      const newIndex = brushHistoryIndex + 1;
+      setBrushHistoryIndex(newIndex);
+      applyBrushHistory(brushHistory[newIndex]);
+    }
+  }, [brushHistoryIndex, brushHistory]);
+
+  const applyBrushHistory = (dataUrl: string) => {
+    const canvas = brushCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+    };
+    img.src = dataUrl;
   };
 
   const undo = useCallback(() => {
@@ -228,6 +279,30 @@ const App: React.FC = () => {
       setState(prev => ({ ...prev, historyIndex: prev.historyIndex - 1 }));
     }
   }, [state.historyIndex]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in a textarea or input
+      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        if (state.activeMode === EditMode.REMOVE) {
+          if (e.shiftKey) redoBrush();
+          else undoBrush();
+        } else {
+          if (e.shiftKey) redo();
+          else undo();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        if (state.activeMode === EditMode.REMOVE) redoBrush();
+        else redo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state.activeMode, undoBrush, redoBrush, undo, redo]);
 
   const onFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -426,8 +501,11 @@ const App: React.FC = () => {
       ctx.lineJoin = 'round'; 
       ctx.stroke();
     } else if (e.type === 'mouseup' || e.type === 'touchend' || e.type === 'mouseleave') { 
-      setIsBrushing(false); 
-      ctx.closePath(); 
+      if (isBrushing) {
+        setIsBrushing(false); 
+        ctx.closePath(); 
+        saveBrushState();
+      }
     }
   };
 
@@ -957,6 +1035,10 @@ const App: React.FC = () => {
               <span className="hidden md:inline">Add Media</span>
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             </button>
+            <button onClick={() => setShowGuide(true)} className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-xs font-semibold flex items-center gap-2" title="User Guide">
+               <span className="hidden md:inline">Help</span>
+               <span className="text-lg">❓</span>
+            </button>
             <button onClick={() => setShowExportModal(true)} disabled={state.layers.length === 0} className="p-2.5 bg-fuchsia-600 rounded-xl text-xs font-black uppercase shadow-lg disabled:opacity-30 flex items-center gap-2">
                <span className="hidden md:inline">Publish</span>
                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
@@ -1094,7 +1176,11 @@ const App: React.FC = () => {
             <div className="max-w-4xl mx-auto bg-slate-900/90 backdrop-blur-2xl border border-slate-800 rounded-3xl p-8 animate-in slide-in-from-bottom-8 shadow-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                 <div className="flex items-center gap-3"><span className="text-xl">🧽</span><div className="flex flex-col"><span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Creative Eraser</span></div></div>
-                <button onClick={clearBrush} className="px-3 py-1.5 bg-slate-800 text-slate-300 text-[10px] font-black uppercase rounded-lg border border-slate-700">Clear Selection</button>
+                <div className="flex gap-2">
+                  <button onClick={undoBrush} disabled={brushHistoryIndex < 0} className="px-3 py-1.5 bg-slate-800 text-slate-300 text-[10px] font-black uppercase rounded-lg border border-slate-700 disabled:opacity-30 transition-all active:scale-95" title="Undo Stroke (Ctrl+Z)">Undo</button>
+                  <button onClick={redoBrush} disabled={brushHistoryIndex >= brushHistory.length - 1} className="px-3 py-1.5 bg-slate-800 text-slate-300 text-[10px] font-black uppercase rounded-lg border border-slate-700 disabled:opacity-30 transition-all active:scale-95" title="Redo Stroke (Ctrl+Y)">Redo</button>
+                  <button onClick={clearBrush} className="px-3 py-1.5 bg-slate-800 text-slate-300 text-[10px] font-black uppercase rounded-lg border border-slate-700 transition-all active:scale-95">Clear Selection</button>
+                </div>
               </div>
               <div className="flex-1 space-y-2">
                 <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest"><span>Brush Size</span><span className="text-fuchsia-400">{brushSize}px</span></div>
@@ -1453,7 +1539,109 @@ const App: React.FC = () => {
           </div>
         </MobileBottomSheet>
 
-        {/* Export Modal */}
+        {/* User Guide Modal */}
+        {showGuide && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
+            <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl" onClick={() => setShowGuide(false)} />
+            <div className="relative w-full max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+              <div className="p-8 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-600 flex items-center justify-center text-2xl shadow-lg shadow-fuchsia-600/20">📖</div>
+                  <div>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight">User Guide</h2>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Master the Prot0 Creative Suite</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowGuide(false)} className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">×</button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-8 md:p-12 space-y-12 custom-scrollbar">
+                <section className="space-y-4">
+                  <h3 className="text-fuchsia-400 font-black uppercase text-xs tracking-[0.2em]">Getting Started</h3>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="bg-slate-950/40 p-6 rounded-3xl border border-slate-800/50">
+                      <span className="text-2xl mb-4 block">📤</span>
+                      <h4 className="text-white font-bold text-sm mb-2">Upload Your Vision</h4>
+                      <p className="text-slate-400 text-xs leading-relaxed">Click "Add Media" or drag and drop photos anywhere to start. We support JPEG, PNG, WebP, and even professional RAW formats.</p>
+                    </div>
+                    <div className="bg-slate-950/40 p-6 rounded-3xl border border-slate-800/50">
+                      <span className="text-2xl mb-4 block">🏗️</span>
+                      <h4 className="text-white font-bold text-sm mb-2">The Workspace</h4>
+                      <p className="text-slate-400 text-xs leading-relaxed">Toolbox is on the left, Layers on the right. Use the bottom bar for tool-specific controls like brush size or filter intensity.</p>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <h3 className="text-fuchsia-400 font-black uppercase text-xs tracking-[0.2em]">The Toolbox (Core Editing)</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {[
+                      { icon: '✂️', title: 'Crop', desc: 'Smart center-square optimization.' },
+                      { icon: '🧽', title: 'Eraser', desc: 'Remove objects with brush undo/redo.' },
+                      { icon: '👤', title: 'BG Remove', desc: 'Isolate subjects instantly.' },
+                      { icon: '🚀', title: 'Upscale', desc: 'Remaster low-res images.' },
+                      { icon: '🧪', title: 'Color', desc: 'Fine-tune grading and looks.' },
+                      { icon: '📷', title: 'RAW Dev', desc: 'Pro-grade exposure control.' },
+                    ].map(tool => (
+                      <div key={tool.title} className="p-4 rounded-2xl bg-slate-800/30 border border-slate-800">
+                        <span className="text-xl mb-2 block">{tool.icon}</span>
+                        <h4 className="text-white font-bold text-[11px] mb-1">{tool.title}</h4>
+                        <p className="text-slate-500 text-[9px] leading-tight">{tool.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <h3 className="text-fuchsia-400 font-black uppercase text-xs tracking-[0.2em]">Creative Suite (Advanced)</h3>
+                  <div className="space-y-4">
+                    <div className="p-6 rounded-3xl bg-gradient-to-br from-fuchsia-600/10 to-transparent border border-fuchsia-500/20">
+                      <div className="flex items-start gap-4">
+                        <span className="text-3xl">✨</span>
+                        <div>
+                          <h4 className="text-white font-bold text-sm mb-1">Creative Create & Style</h4>
+                          <p className="text-slate-400 text-xs leading-relaxed">Use "Create" to generate new assets from text, or "Style" to transform existing layers into artistic masterpieces.</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-6 rounded-3xl bg-slate-800/30 border border-slate-800">
+                      <div className="flex items-start gap-4">
+                        <span className="text-3xl">🧩</span>
+                        <div>
+                          <h4 className="text-white font-bold text-sm mb-1">Creative Collage</h4>
+                          <p className="text-slate-400 text-xs leading-relaxed">Select 2+ layers and choose a layout (Grid, Mosaic, Stack) to instantly compose them into a professional layout.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <h3 className="text-fuchsia-400 font-black uppercase text-xs tracking-[0.2em]">Keyboard Shortcuts</h3>
+                  <div className="bg-slate-950/60 rounded-3xl border border-slate-800 overflow-hidden">
+                    <table className="w-full text-left text-[11px]">
+                      <thead>
+                        <tr className="border-b border-slate-800 bg-slate-900/50">
+                          <th className="px-6 py-4 font-black text-slate-500 uppercase tracking-widest">Action</th>
+                          <th className="px-6 py-4 font-black text-slate-500 uppercase tracking-widest">Shortcut</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        <tr><td className="px-6 py-4 text-slate-300">Undo (Global / Brush)</td><td className="px-6 py-4 font-mono text-fuchsia-400">Ctrl + Z</td></tr>
+                        <tr><td className="px-6 py-4 text-slate-300">Redo (Global / Brush)</td><td className="px-6 py-4 font-mono text-fuchsia-400">Ctrl + Y</td></tr>
+                        <tr><td className="px-6 py-4 text-slate-300">Apply Action</td><td className="px-6 py-4 font-mono text-fuchsia-400">Enter</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </div>
+
+              <div className="p-8 bg-slate-950/50 border-t border-slate-800 flex justify-center">
+                <button onClick={() => setShowGuide(false)} className="px-12 py-4 bg-fuchsia-600 rounded-2xl text-white font-black uppercase text-xs tracking-[0.2em] shadow-xl shadow-fuchsia-600/20 hover:bg-fuchsia-500 transition-all active:scale-95">Got it, let's create!</button>
+              </div>
+            </div>
+          </div>
+        )}
         {showExportModal && (
           <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-[150] flex items-center justify-center p-6 animate-in fade-in duration-300">
             <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 shadow-2xl space-y-8 animate-in zoom-in-95 duration-500">

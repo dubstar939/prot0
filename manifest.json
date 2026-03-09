@@ -1,0 +1,21 @@
+{
+  "name": "Prot0 Creative Suite by 939Pro",
+  "short_name": "Prot0 Creative",
+  "description": "A world-class professional photo editing suite featuring local image processing, creative filters, and powerful composition tools.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#db2777",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/prot0/192/192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://picsum.photos/seed/prot0/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

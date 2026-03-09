@@ -68,6 +68,15 @@ Work faster with these essential hotkeys:
 
 ---
 
+## 📲 Install as App
+
+You can now save **Prot0 Creative Suite** directly to your home screen or desktop for a true full-screen, native experience:
+1. Look for the **"Install App 📲"** button in the top header (it appears when your browser supports installation).
+2. Follow the prompt to add it to your device.
+3. Launch it anytime from your app drawer or home screen!
+
+---
+
 ## 💾 Exporting Your Work
 
 When your masterpiece is ready:

@@ -129,6 +129,7 @@ const App: React.FC = () => {
   const [showMobileSuite, setShowMobileSuite] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [exportConfig, setExportConfig] = useState<ExportConfig>({ format: 'image/jpeg', quality: 90 });
   const [brushSize, setBrushSize] = useState(40);
   const [isBrushing, setIsBrushing] = useState(false);
@@ -303,6 +304,24 @@ const App: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [state.activeMode, undoBrush, redoBrush, undo, redo]);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
 
   const onFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1035,6 +1054,12 @@ const App: React.FC = () => {
               <span className="hidden md:inline">Add Media</span>
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             </button>
+            {deferredPrompt && (
+              <button onClick={handleInstallClick} className="p-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl border border-emerald-500 text-xs font-black uppercase shadow-lg flex items-center gap-2 animate-bounce">
+                <span className="hidden md:inline">Install App</span>
+                <span className="text-lg">📲</span>
+              </button>
+            )}
             <button onClick={() => setShowGuide(true)} className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-xs font-semibold flex items-center gap-2" title="User Guide">
                <span className="hidden md:inline">Help</span>
                <span className="text-lg">❓</span>
@@ -1611,6 +1636,19 @@ const App: React.FC = () => {
                           <h4 className="text-white font-bold text-sm mb-1">Creative Collage</h4>
                           <p className="text-slate-400 text-xs leading-relaxed">Select 2+ layers and choose a layout (Grid, Mosaic, Stack) to instantly compose them into a professional layout.</p>
                         </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <h3 className="text-fuchsia-400 font-black uppercase text-xs tracking-[0.2em]">Install as App</h3>
+                  <div className="p-6 rounded-3xl bg-emerald-600/10 border border-emerald-500/20">
+                    <div className="flex items-start gap-4">
+                      <span className="text-3xl">📲</span>
+                      <div>
+                        <h4 className="text-white font-bold text-sm mb-1">Native Experience</h4>
+                        <p className="text-slate-400 text-xs leading-relaxed">Save Prot0 to your home screen for a full-screen, distraction-free experience. Look for the "Install App" button in the header!</p>
                       </div>
                     </div>
                   </div>

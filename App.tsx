@@ -3,19 +3,31 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { EditMode, HistoryItem, AppState, FilterPreset, TargetResolution, Layer, ExportConfig, ExportFormat, BlendMode, LayerGroup, RawDevelopmentParams, SocialPreset } from './types';
 import { applyFiltersToImage, resizeImageLocally, createCollageLocally, cropImageLocally } from './services/localImageService';
 
-const PRESET_FILTERS: FilterPreset[] = [
-  { id: 'vintage', label: 'Vintage', icon: '📷', color: 'bg-amber-500', prompt: "sepia(0.5) contrast(1.2) brightness(0.9) saturate(0.8)" },
-  { id: 'mono', label: 'Monochrome', icon: '🏁', color: 'bg-slate-500', prompt: "grayscale(1) contrast(1.5)" },
-  { id: 'cinematic', label: 'Cinematic', icon: '🎬', color: 'bg-cyan-500', prompt: "contrast(1.3) saturate(1.2) hue-rotate(-10deg) brightness(0.9)" },
-  { id: 'cyberpunk', label: 'Cyberpunk', icon: '🏮', color: 'bg-fuchsia-500', prompt: "hue-rotate(280deg) saturate(2) contrast(1.2) brightness(1.1)" },
-  { id: 'painting', label: 'Oil Painting', icon: '🎨', color: 'bg-orange-500', prompt: "contrast(1.1) saturate(1.5) blur(1px)" },
-  { id: 'sketch', label: 'Sketch', icon: '✏️', color: 'bg-zinc-400', prompt: "grayscale(1) contrast(2) invert(1) opacity(0.8)" },
-  { id: 'noir', label: 'Noir', icon: '🕵️', color: 'bg-zinc-900', prompt: "grayscale(1) contrast(2) brightness(0.8)" },
-  { id: 'vaporwave', label: 'Vaporwave', icon: '🌴', color: 'bg-purple-500', prompt: "hue-rotate(300deg) saturate(1.8) brightness(1.2)" },
-  { id: 'anime', label: 'Anime', icon: '⛩️', color: 'bg-rose-400', prompt: "saturate(1.6) contrast(1.1) brightness(1.1)" },
-  { id: 'solar', label: 'Solar', icon: '☀️', color: 'bg-orange-400', prompt: "invert(0.5) hue-rotate(180deg) saturate(2)" },
-  { id: 'blueprint', label: 'Blueprint', icon: '📐', color: 'bg-blue-600', prompt: "sepia(1) hue-rotate(190deg) saturate(5) contrast(1.5) invert(0.2)" },
-  { id: 'infrared', label: 'Infrared', icon: '⚛️', color: 'bg-pink-300', prompt: "hue-rotate(150deg) saturate(1.5) invert(0.1)" },
+const FILTER_CATEGORIES = [
+  { id: 'all', label: 'All', icon: '🌈' },
+  { id: 'cinematic', label: 'Film', icon: '🎬' },
+  { id: 'artistic', label: 'Art', icon: '🎨' },
+  { id: 'vintage', label: 'Retro', icon: '🎞️' },
+  { id: 'experimental', label: 'FX', icon: '🧪' },
+];
+
+const PRESET_FILTERS: (FilterPreset & { category: string })[] = [
+  { id: 'vintage', label: 'Vintage', icon: '📷', color: 'bg-amber-500', category: 'vintage', prompt: "sepia(0.5) contrast(1.2) brightness(0.9) saturate(0.8)" },
+  { id: 'mono', label: 'Monochrome', icon: '🏁', color: 'bg-slate-500', category: 'vintage', prompt: "grayscale(1) contrast(1.5)" },
+  { id: 'cinematic', label: 'Cinematic', icon: '🎬', color: 'bg-cyan-500', category: 'cinematic', prompt: "contrast(1.3) saturate(1.2) hue-rotate(-10deg) brightness(0.9)" },
+  { id: 'cyberpunk', label: 'Cyberpunk', icon: '🏮', color: 'bg-fuchsia-500', category: 'artistic', prompt: "hue-rotate(280deg) saturate(2) contrast(1.2) brightness(1.1)" },
+  { id: 'painting', label: 'Oil Painting', icon: '🎨', color: 'bg-orange-500', category: 'artistic', prompt: "contrast(1.1) saturate(1.5) blur(1px)" },
+  { id: 'sketch', label: 'Sketch', icon: '✏️', color: 'bg-zinc-400', category: 'artistic', prompt: "grayscale(1) contrast(2) invert(1) opacity(0.8)" },
+  { id: 'noir', label: 'Noir', icon: '🕵️', color: 'bg-zinc-900', category: 'cinematic', prompt: "grayscale(1) contrast(2) brightness(0.8)" },
+  { id: 'vaporwave', label: 'Vaporwave', icon: '🌴', color: 'bg-purple-500', category: 'artistic', prompt: "hue-rotate(300deg) saturate(1.8) brightness(1.2)" },
+  { id: 'anime', label: 'Anime', icon: '⛩️', color: 'bg-rose-400', category: 'artistic', prompt: "saturate(1.6) contrast(1.1) brightness(1.1)" },
+  { id: 'solar', label: 'Solar', icon: '☀️', color: 'bg-orange-400', category: 'experimental', prompt: "invert(0.5) hue-rotate(180deg) saturate(2)" },
+  { id: 'blueprint', label: 'Blueprint', icon: '📐', color: 'bg-blue-600', category: 'experimental', prompt: "sepia(1) hue-rotate(190deg) saturate(5) contrast(1.5) invert(0.2)" },
+  { id: 'infrared', label: 'Infrared', icon: '⚛️', color: 'bg-pink-300', category: 'experimental', prompt: "hue-rotate(150deg) saturate(1.5) invert(0.1)" },
+  { id: 'technicolor', label: 'Technicolor', icon: '🌈', color: 'bg-red-500', category: 'cinematic', prompt: "saturate(2.5) contrast(1.2) brightness(1.1)" },
+  { id: 'kodachrome', label: 'Kodachrome', icon: '🎞️', color: 'bg-yellow-600', category: 'vintage', prompt: "sepia(0.2) contrast(1.3) saturate(1.4) hue-rotate(-5deg)" },
+  { id: 'glitch', label: 'Glitch', icon: '👾', color: 'bg-green-500', category: 'experimental', prompt: "hue-rotate(90deg) saturate(3) contrast(1.5) invert(0.1) blur(0.5px)" },
+  { id: 'dreamy', label: 'Dreamy', icon: '☁️', color: 'bg-blue-200', category: 'artistic', prompt: "opacity(0.9) blur(1px) saturate(1.2) brightness(1.1)" },
 ];
 
 const STYLE_PRESETS = [
@@ -148,6 +160,7 @@ const App: React.FC = () => {
   const [activePoster, setActivePoster] = useState<string | null>(null);
   const [activeLogo, setActiveLogo] = useState<string | null>(null);
   const [activeCollageLayout, setActiveCollageLayout] = useState<string>('grid');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
   
   // Drag and Drop State
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
@@ -940,16 +953,19 @@ const App: React.FC = () => {
     if (!isOpen) return null;
     return (
       <div className="md:hidden fixed inset-0 z-[100] animate-in fade-in duration-300">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-        <div className="absolute inset-x-0 bottom-0 max-h-[85vh] bg-slate-900 rounded-t-[2.5rem] border-t border-slate-800 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-500 ease-out-expo shadow-2xl">
-          <div className="w-full flex justify-center py-4 cursor-pointer" onClick={onClose}>
-            <div className="w-12 h-1.5 bg-slate-700 rounded-full opacity-40 hover:opacity-100 transition-opacity" />
+        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={onClose} />
+        <div className="absolute inset-x-0 bottom-0 max-h-[85vh] bg-slate-900 rounded-t-[3rem] border-t border-white/10 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-500 ease-out-expo shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
+          <div className="w-full flex justify-center py-6 cursor-pointer" onClick={onClose}>
+            <div className="w-16 h-1.5 bg-slate-700 rounded-full opacity-40 hover:opacity-100 transition-opacity" />
           </div>
-          <div className="px-8 pb-6 border-b border-slate-800 flex items-center justify-between">
-            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-fuchsia-400">{title}</h4>
-            <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-2 -mr-2">✕</button>
+          <div className="px-10 pb-6 border-b border-slate-800 flex items-center justify-between">
+            <div className="flex flex-col">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-1">{title}</h4>
+              <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Creative Suite Hub</p>
+            </div>
+            <button onClick={onClose} className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">✕</button>
           </div>
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-6 pb-24">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-8 pb-32">
             {children}
           </div>
         </div>
@@ -969,16 +985,26 @@ const App: React.FC = () => {
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">Toolbox</h3>
               <div className="grid grid-cols-1 gap-1">
                 {[
-                  { id: EditMode.CROP, label: 'Crop Tool', icon: '✂️' },
-                  { id: EditMode.REMOVE, label: 'Creative Eraser', icon: '🧽' },
-                  { id: EditMode.ISOLATE, label: 'Remove Background', icon: '👤' },
-                  { id: EditMode.ENHANCE, label: 'Upscale & Enhance', icon: '🚀' },
-                  { id: EditMode.COLOR, label: 'Creative Color', icon: '🧪' },
-                  { id: EditMode.BLUR, label: 'Creative Bokeh', icon: '🌫️' },
-                  { id: EditMode.RAW_DEV, label: 'RAW Developer', icon: '📷', show: currentActiveLayer?.isRaw },
+                  { id: EditMode.CROP, label: 'Crop Tool', icon: '✂️', desc: 'Optimize composition' },
+                  { id: EditMode.REMOVE, label: 'Creative Eraser', icon: '🧽', desc: 'Remove unwanted objects' },
+                  { id: EditMode.ISOLATE, label: 'Remove Background', icon: '👤', desc: 'Isolate your subject' },
+                  { id: EditMode.ENHANCE, label: 'Upscale & Enhance', icon: '🚀', desc: 'Remaster low-res photos' },
+                  { id: EditMode.COLOR, label: 'Creative Color', icon: '🧪', desc: 'Professional color grading' },
+                  { id: EditMode.BLUR, label: 'Creative Bokeh', icon: '🌫️', desc: 'Add depth of field' },
+                  { id: EditMode.RAW_DEV, label: 'RAW Developer', icon: '📷', desc: 'Full exposure control', show: currentActiveLayer?.isRaw },
                 ].filter(m => m.show !== false).map((mode) => (
-                  <button key={mode.id} onClick={() => handleModeSwitch(mode.id as EditMode)} className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all ${state.activeMode === mode.id ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/20' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
-                    <span className="text-lg">{mode.icon}</span> {mode.label}
+                  <button 
+                    key={mode.id} 
+                    onClick={() => handleModeSwitch(mode.id as EditMode)} 
+                    className={`group flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-300 ${state.activeMode === mode.id ? 'bg-fuchsia-600 text-white shadow-xl shadow-fuchsia-600/20 scale-[1.02]' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${state.activeMode === mode.id ? 'bg-white/20' : 'bg-slate-800 group-hover:bg-slate-700'}`}>
+                      {mode.icon}
+                    </div>
+                    <div className="flex flex-col items-start overflow-hidden">
+                      <span className="font-bold tracking-tight leading-none mb-1">{mode.label}</span>
+                      <span className={`text-[10px] truncate w-full ${state.activeMode === mode.id ? 'text-white/70' : 'text-slate-500'}`}>{mode.desc}</span>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -988,29 +1014,76 @@ const App: React.FC = () => {
               <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">Creative Suite</h3>
               <div className="grid grid-cols-1 gap-1">
                 {[
-                  { id: EditMode.GENERATE, label: 'Creative Create', icon: '✨' },
-                  { id: EditMode.COLLAGE, label: 'Creative Collage', icon: '🧩' },
-                  { id: EditMode.STYLE_TRANSFER, label: 'Creative Style', icon: '🖼️' },
-                  { id: EditMode.SOCIAL, label: 'Social Hub', icon: '📱' },
-                  { id: EditMode.POSTER, label: 'Poster & Flyer', icon: '📜' },
-                  { id: EditMode.LOGO, label: 'Logo Designer', icon: '🏷️' },
+                  { id: EditMode.GENERATE, label: 'Creative Create', icon: '✨', desc: 'Generate from text' },
+                  { id: EditMode.COLLAGE, label: 'Creative Collage', icon: '🧩', desc: 'Compose multiple layers' },
+                  { id: EditMode.STYLE_TRANSFER, label: 'Creative Style', icon: '🖼️', desc: 'Apply artistic filters' },
+                  { id: EditMode.SOCIAL, label: 'Social Hub', icon: '📱', desc: 'Resize for social media' },
+                  { id: EditMode.POSTER, label: 'Poster & Flyer', icon: '📜', desc: 'Event & ad layouts' },
+                  { id: EditMode.LOGO, label: 'Logo Designer', icon: '🏷️', desc: 'Branding & typography' },
                 ].map((mode) => (
-                  <button key={mode.id} onClick={() => handleModeSwitch(mode.id as EditMode)} className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all ${state.activeMode === mode.id ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/20' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
-                    <span className="text-lg">{mode.icon}</span> {mode.label}
+                  <button 
+                    key={mode.id} 
+                    onClick={() => handleModeSwitch(mode.id as EditMode)} 
+                    className={`group flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-300 ${state.activeMode === mode.id ? 'bg-fuchsia-600 text-white shadow-xl shadow-fuchsia-600/20 scale-[1.02]' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${state.activeMode === mode.id ? 'bg-white/20' : 'bg-slate-800 group-hover:bg-slate-700'}`}>
+                      {mode.icon}
+                    </div>
+                    <div className="flex flex-col items-start overflow-hidden">
+                      <span className="font-bold tracking-tight leading-none mb-1">{mode.label}</span>
+                      <span className={`text-[10px] truncate w-full ${state.activeMode === mode.id ? 'text-white/70' : 'text-slate-500'}`}>{mode.desc}</span>
+                    </div>
                   </button>
                 ))}
               </div>
             </section>
 
-            <section>
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">Creative Looks</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {PRESET_FILTERS.map((filter) => (
-                  <button key={filter.id} disabled={state.layers.length === 0 || state.isProcessing} onClick={() => handleApplyFilter(filter)} className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-800/40 border border-slate-800 hover:border-fuchsia-500/50 transition-all group disabled:opacity-30 active:scale-95">
-                    <span className="text-xl mb-1 group-hover:scale-110 transition-transform">{filter.icon}</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{filter.label}</span>
-                  </button>
-                ))}
+            <section className="flex-1 flex flex-col min-h-0">
+              <div className="flex items-center justify-between mb-4 px-2">
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Creative Looks</h3>
+                <div className="flex gap-1 bg-slate-900/50 p-1 rounded-lg border border-slate-800">
+                  {FILTER_CATEGORIES.map(cat => (
+                    <button 
+                      key={cat.id}
+                      onClick={() => setFilterCategory(cat.id)}
+                      className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${filterCategory === cat.id ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+                      title={cat.label}
+                    >
+                      <span className="text-xs">{cat.icon}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 -mr-2">
+                <div className="grid grid-cols-2 gap-3">
+                  {PRESET_FILTERS.filter(f => filterCategory === 'all' || f.category === filterCategory).map((filter) => (
+                    <button 
+                      key={filter.id} 
+                      disabled={state.layers.length === 0 || state.isProcessing} 
+                      onClick={() => handleApplyFilter(filter)} 
+                      className="group relative flex flex-col items-start p-0 rounded-2xl bg-slate-900 border border-slate-800 hover:border-fuchsia-500/50 transition-all overflow-hidden disabled:opacity-30 active:scale-95"
+                    >
+                      <div className="w-full aspect-[4/3] relative overflow-hidden bg-slate-800">
+                        {currentActiveLayer ? (
+                          <img 
+                            src={currentActiveLayer.url} 
+                            style={{ filter: filter.prompt }} 
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-2xl opacity-20">{filter.icon}</div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-60" />
+                        <div className="absolute bottom-2 left-2 flex items-center gap-1.5">
+                          <span className="text-xs">{filter.icon}</span>
+                          <span className="text-[9px] font-black text-white uppercase tracking-widest drop-shadow-md">{filter.label}</span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </section>
           </nav>
@@ -1141,272 +1214,354 @@ const App: React.FC = () => {
         {/* Action Panel Container (Desktop) */}
         <div className="hidden md:block px-8 pb-12 z-20 space-y-4">
           {state.activeMode === EditMode.COLLAGE && (
-            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-2xl border border-slate-800 rounded-3xl p-8 animate-in slide-in-from-bottom-8 shadow-2xl space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">🧩</span>
+            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 animate-in slide-in-from-bottom-8 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] space-y-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-600/20 flex items-center justify-center text-2xl shadow-inner border border-fuchsia-500/20">🧩</div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Creative Architect</span>
-                    <span className="text-[8px] font-bold text-slate-500">Pick a layout strategy for your composition</span>
+                    <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Creative Architect</h3>
+                    <p className="text-[10px] font-medium text-slate-500">Select 2+ layers to compose a professional layout</p>
                   </div>
                 </div>
-                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">Selected: <span className="text-fuchsia-400">{selectedLayerIds.length}</span></div>
+                <div className="flex items-center gap-3">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-950/50 px-4 py-2 rounded-xl border border-slate-800">
+                    Selected: <span className="text-fuchsia-400">{selectedLayerIds.length}</span>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-5 gap-3">
+
+              <div className="grid grid-cols-5 gap-4">
                 {COLLAGE_LAYOUTS.map(layout => (
                   <button 
                     key={layout.id} 
                     onClick={() => setActiveCollageLayout(layout.id)} 
-                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${activeCollageLayout === layout.id ? 'bg-fuchsia-600/10 border-fuchsia-500 shadow-lg' : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'}`}
-                    title={layout.prompt}
+                    className={`group relative flex flex-col items-center gap-3 p-5 rounded-[2rem] border-2 transition-all duration-300 ${activeCollageLayout === layout.id ? 'bg-fuchsia-600 border-fuchsia-400 shadow-[0_0_30px_rgba(217,70,239,0.3)] scale-105' : 'bg-slate-950/40 border-slate-800 hover:border-slate-600 hover:bg-slate-900/60'}`}
                   >
-                    <span className="text-2xl mb-1">{layout.icon}</span>
-                    <span className="text-[9px] font-black uppercase tracking-tight text-slate-100">{layout.label}</span>
+                    <span className={`text-3xl transition-transform duration-300 ${activeCollageLayout === layout.id ? 'scale-110' : 'group-hover:scale-110'}`}>{layout.icon}</span>
+                    <span className={`text-[10px] font-black uppercase tracking-tight transition-colors ${activeCollageLayout === layout.id ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`}>{layout.label}</span>
+                    {activeCollageLayout === layout.id && <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow-lg animate-in zoom-in duration-300"><svg className="w-2.5 h-2.5 text-fuchsia-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg></div>}
                   </button>
                 ))}
               </div>
-              <div className="space-y-3">
-                 <div className="h-px bg-slate-800" />
-                 <div className="flex gap-3">
-                    <textarea 
-                      value={prompt} 
-                      onChange={(e) => setPrompt(e.target.value)}
-                      placeholder="Theme guidance (e.g. 'Vintage scrapbook', 'Minimalist black & white')..."
-                      className="flex-1 bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-inner"
-                      rows={2}
-                    />
-                    <button 
-                      onClick={handleAction} 
-                      disabled={state.isProcessing || selectedLayerIds.length < 2} 
-                      className="px-8 bg-fuchsia-600 rounded-xl text-white font-black uppercase text-[10px] tracking-widest hover:bg-fuchsia-500 disabled:opacity-30 transition-all shadow-xl active:scale-95"
-                    >
-                      Compose Collage
-                    </button>
-                 </div>
+
+              <div className="flex gap-4 items-end">
+                <div className="flex-1 space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Style Guidance</label>
+                  <textarea 
+                    value={prompt} 
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Describe the mood (e.g. 'Vintage scrapbook', 'Minimalist grid')..."
+                    className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl px-5 py-4 text-xs focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-inner placeholder-slate-700"
+                    rows={2}
+                  />
+                </div>
+                <button 
+                  onClick={handleAction} 
+                  disabled={state.isProcessing || selectedLayerIds.length < 2} 
+                  className="h-[72px] px-10 bg-fuchsia-600 rounded-2xl text-white font-black uppercase text-xs tracking-[0.2em] hover:bg-fuchsia-500 disabled:opacity-30 transition-all shadow-2xl shadow-fuchsia-600/20 active:scale-95 flex items-center gap-3"
+                >
+                  <span>Compose</span>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                </button>
               </div>
             </div>
           )}
 
           {state.activeMode === EditMode.CROP && (
-            <div className="max-w-4xl mx-auto bg-slate-900/90 backdrop-blur-2xl border border-slate-800 rounded-3xl p-8 animate-in slide-in-from-bottom-8 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3"><span className="text-xl">✂️</span><div className="flex flex-col"><span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Creative Crop</span></div></div>
-                <button onClick={handleAction} className="px-6 py-2 bg-fuchsia-600 text-white text-[10px] font-black uppercase rounded-xl shadow-lg">Apply Center Crop</button>
+            <div className="max-w-2xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 animate-in slide-in-from-bottom-8 shadow-2xl flex items-center justify-between gap-8">
+              <div className="flex items-center gap-5">
+                <div className="w-14 h-14 rounded-2xl bg-fuchsia-600/20 flex items-center justify-center text-3xl shadow-inner border border-fuchsia-500/20">✂️</div>
+                <div className="flex flex-col">
+                  <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Creative Crop</h3>
+                  <p className="text-[10px] font-medium text-slate-500">Smart center-square optimization for your subject</p>
+                </div>
               </div>
-              <p className="text-slate-400 text-xs text-center">Currently applying a smart center-square crop to optimize your composition.</p>
+              <button 
+                onClick={handleAction} 
+                className="px-10 py-4 bg-fuchsia-600 text-white text-xs font-black uppercase tracking-[0.2em] rounded-2xl shadow-2xl shadow-fuchsia-600/20 hover:bg-fuchsia-500 transition-all active:scale-95"
+              >
+                Apply Crop
+              </button>
             </div>
           )}
 
           {state.activeMode === EditMode.REMOVE && (
-            <div className="max-w-4xl mx-auto bg-slate-900/90 backdrop-blur-2xl border border-slate-800 rounded-3xl p-8 animate-in slide-in-from-bottom-8 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3"><span className="text-xl">🧽</span><div className="flex flex-col"><span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Creative Eraser</span></div></div>
+            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 animate-in slide-in-from-bottom-8 shadow-2xl space-y-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-600/20 flex items-center justify-center text-2xl shadow-inner border border-fuchsia-500/20">🧽</div>
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Creative Eraser</h3>
+                    <p className="text-[10px] font-medium text-slate-500">Paint over objects you want to vanish</p>
+                  </div>
+                </div>
                 <div className="flex gap-2">
-                  <button onClick={undoBrush} disabled={brushHistoryIndex < 0} className="px-3 py-1.5 bg-slate-800 text-slate-300 text-[10px] font-black uppercase rounded-lg border border-slate-700 disabled:opacity-30 transition-all active:scale-95" title="Undo Stroke (Ctrl+Z)">Undo</button>
-                  <button onClick={redoBrush} disabled={brushHistoryIndex >= brushHistory.length - 1} className="px-3 py-1.5 bg-slate-800 text-slate-300 text-[10px] font-black uppercase rounded-lg border border-slate-700 disabled:opacity-30 transition-all active:scale-95" title="Redo Stroke (Ctrl+Y)">Redo</button>
-                  <button onClick={clearBrush} className="px-3 py-1.5 bg-slate-800 text-slate-300 text-[10px] font-black uppercase rounded-lg border border-slate-700 transition-all active:scale-95">Clear Selection</button>
+                  <button onClick={undoBrush} disabled={brushHistoryIndex < 0} className="w-12 h-12 bg-slate-800 text-slate-300 rounded-xl border border-slate-700 disabled:opacity-20 transition-all hover:bg-slate-700 flex items-center justify-center" title="Undo Stroke (Ctrl+Z)"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg></button>
+                  <button onClick={redoBrush} disabled={brushHistoryIndex >= brushHistory.length - 1} className="w-12 h-12 bg-slate-800 text-slate-300 rounded-xl border border-slate-700 disabled:opacity-20 transition-all hover:bg-slate-700 flex items-center justify-center" title="Redo Stroke (Ctrl+Y)"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" /></svg></button>
+                  <button onClick={clearBrush} className="px-6 h-12 bg-slate-800 text-slate-300 text-[10px] font-black uppercase tracking-widest rounded-xl border border-slate-700 hover:bg-slate-700 transition-all">Clear All</button>
                 </div>
               </div>
-              <div className="flex-1 space-y-2">
-                <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest"><span>Brush Size</span><span className="text-fuchsia-400">{brushSize}px</span></div>
-                <input type="range" min="5" max="200" value={brushSize} onChange={(e) => setBrushSize(parseInt(e.target.value))} className="w-full accent-fuchsia-500 h-1.5 bg-slate-800 rounded-full cursor-pointer" />
+              
+              <div className="space-y-4">
+                <div className="flex justify-between items-end">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Brush Size</span>
+                    <span className="text-xl font-black text-white">{brushSize}<span className="text-fuchsia-500 text-xs ml-1">PX</span></span>
+                  </div>
+                  <div className="flex items-center gap-3 text-slate-600">
+                    <span className="text-[10px]">Small</span>
+                    <div className="w-2 h-2 rounded-full bg-slate-800" />
+                    <div className="w-4 h-4 rounded-full bg-slate-800" />
+                    <div className="w-6 h-6 rounded-full bg-slate-800" />
+                    <span className="text-[10px]">Large</span>
+                  </div>
+                </div>
+                <input 
+                  type="range" 
+                  min="5" 
+                  max="200" 
+                  value={brushSize} 
+                  onChange={(e) => setBrushSize(parseInt(e.target.value))} 
+                  className="w-full accent-fuchsia-500 h-2 bg-slate-950 rounded-full cursor-pointer appearance-none border border-slate-800" 
+                />
               </div>
             </div>
           )}
 
           {state.activeMode === EditMode.BLUR && (
-            <div className="max-w-4xl mx-auto bg-slate-900/90 backdrop-blur-2xl border border-slate-800 rounded-3xl p-8 animate-in slide-in-from-bottom-8 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3"><span className="text-xl">🌫️</span><div className="flex flex-col"><span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Creative Bokeh</span></div></div>
-                <button onClick={resetColorLab} className="px-3 py-1.5 bg-slate-800 text-slate-300 text-[10px] font-black uppercase rounded-lg border border-slate-700">Reset</button>
+            <div className="max-w-2xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 animate-in slide-in-from-bottom-8 shadow-2xl space-y-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-600/20 flex items-center justify-center text-2xl shadow-inner border border-fuchsia-500/20">🌫️</div>
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Creative Bokeh</h3>
+                    <p className="text-[10px] font-medium text-slate-500">Add professional depth-of-field blur</p>
+                  </div>
+                </div>
+                <button onClick={resetColorLab} className="px-6 py-2 bg-slate-800 text-slate-300 text-[10px] font-black uppercase tracking-widest rounded-xl border border-slate-700 hover:bg-slate-700 transition-all">Reset</button>
               </div>
-              <div className="flex-1 space-y-2">
-                <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest"><span>Blur Intensity</span><span className="text-fuchsia-400">{blur}%</span></div>
-                <input type="range" min="0" max="100" value={blur} onChange={(e) => setBlur(parseInt(e.target.value))} className="w-full accent-fuchsia-500 h-1.5 bg-slate-800 rounded-full cursor-pointer" />
+              
+              <div className="space-y-4">
+                <div className="flex justify-between items-end">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Blur Intensity</span>
+                    <span className="text-xl font-black text-white">{blur}<span className="text-fuchsia-500 text-xs ml-1">%</span></span>
+                  </div>
+                </div>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="100" 
+                  value={blur} 
+                  onChange={(e) => setBlur(parseInt(e.target.value))} 
+                  className="w-full accent-fuchsia-500 h-2 bg-slate-950 rounded-full cursor-pointer appearance-none border border-slate-800" 
+                />
               </div>
             </div>
           )}
 
           {state.activeMode === EditMode.RAW_DEV && (
-            <div className="max-w-4xl mx-auto bg-slate-900/90 backdrop-blur-2xl border border-slate-800 rounded-3xl p-8 animate-in slide-in-from-bottom-8 shadow-2xl space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3"><span className="text-xl">📷</span><div className="flex flex-col"><span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">Creative RAW Developer</span></div></div>
-                <button onClick={resetRawParams} className="px-3 py-1.5 bg-slate-800 text-slate-300 text-[10px] font-black uppercase rounded-lg border border-slate-700">Reset Parameters</button>
+            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 animate-in slide-in-from-bottom-8 shadow-2xl space-y-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-600/20 flex items-center justify-center text-2xl shadow-inner border border-amber-500/20">📷</div>
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">RAW Developer</h3>
+                    <p className="text-[10px] font-medium text-slate-500">Professional-grade exposure and color control</p>
+                  </div>
+                </div>
+                <button onClick={resetRawParams} className="px-6 py-2 bg-slate-800 text-slate-300 text-[10px] font-black uppercase tracking-widest rounded-xl border border-slate-700 hover:bg-slate-700 transition-all">Reset All</button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest"><span>Exposure</span><span className="text-amber-400">{rawParams.exposure > 0 ? '+' : ''}{rawParams.exposure.toFixed(2)} EV</span></div>
-                  <input type="range" min="-5" max="5" step="0.1" value={rawParams.exposure} onChange={(e) => setRawParams(prev => ({ ...prev, exposure: parseFloat(e.target.value) }))} className="w-full accent-amber-500 h-1.5 bg-slate-800 rounded-full cursor-pointer" />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest"><span>Temperature</span><span className="text-amber-400">{rawParams.temperature} K</span></div>
-                  <input type="range" min="2000" max="12000" step="100" value={rawParams.temperature} onChange={(e) => setRawParams(prev => ({ ...prev, temperature: parseInt(e.target.value) }))} className="w-full accent-amber-500 h-1.5 bg-slate-800 rounded-full cursor-pointer" />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest"><span>Tint</span><span className="text-amber-400">{rawParams.tint > 0 ? '+' : ''}{rawParams.tint}</span></div>
-                  <input type="range" min="-150" max="150" step="1" value={rawParams.tint} onChange={(e) => setRawParams(prev => ({ ...prev, tint: parseInt(e.target.value) }))} className="w-full accent-amber-500 h-1.5 bg-slate-800 rounded-full cursor-pointer" />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest"><span>Highlights</span><span className="text-amber-400">{rawParams.highlights > 0 ? '+' : ''}{rawParams.highlights}%</span></div>
-                  <input type="range" min="-100" max="100" step="1" value={rawParams.highlights} onChange={(e) => setRawParams(prev => ({ ...prev, highlights: parseInt(e.target.value) }))} className="w-full accent-amber-500 h-1.5 bg-slate-800 rounded-full cursor-pointer" />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest"><span>Shadows</span><span className="text-amber-400">{rawParams.shadows > 0 ? '+' : ''}{rawParams.shadows}%</span></div>
-                  <input type="range" min="-100" max="100" step="1" value={rawParams.shadows} onChange={(e) => setRawParams(prev => ({ ...prev, shadows: parseInt(e.target.value) }))} className="w-full accent-amber-500 h-1.5 bg-slate-800 rounded-full cursor-pointer" />
-                </div>
+
+              <div className="grid grid-cols-2 gap-x-12 gap-y-8">
+                {[
+                  { label: 'Exposure', value: `${rawParams.exposure > 0 ? '+' : ''}${rawParams.exposure.toFixed(2)} EV`, min: -5, max: 5, step: 0.1, key: 'exposure' },
+                  { label: 'Temperature', value: `${rawParams.temperature} K`, min: 2000, max: 12000, step: 100, key: 'temperature' },
+                  { label: 'Tint', value: `${rawParams.tint > 0 ? '+' : ''}${rawParams.tint}`, min: -150, max: 150, step: 1, key: 'tint' },
+                  { label: 'Highlights', value: `${rawParams.highlights > 0 ? '+' : ''}${rawParams.highlights}%`, min: -100, max: 100, step: 1, key: 'highlights' },
+                  { label: 'Shadows', value: `${rawParams.shadows > 0 ? '+' : ''}${rawParams.shadows}%`, min: -100, max: 100, step: 1, key: 'shadows' },
+                ].map(param => (
+                  <div key={param.key} className="space-y-3">
+                    <div className="flex justify-between items-end">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{param.label}</span>
+                      <span className="text-xs font-black text-amber-400">{param.value}</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min={param.min} 
+                      max={param.max} 
+                      step={param.step} 
+                      value={(rawParams as any)[param.key]} 
+                      onChange={(e) => setRawParams(prev => ({ ...prev, [param.key]: parseFloat(e.target.value) }))} 
+                      className="w-full accent-amber-500 h-1.5 bg-slate-950 rounded-full cursor-pointer appearance-none border border-slate-800" 
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           )}
 
           {state.activeMode === EditMode.SOCIAL && (
-            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-2xl border border-slate-800 rounded-3xl p-8 animate-in slide-in-from-bottom-8 shadow-2xl space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">📱</span>
+            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 animate-in slide-in-from-bottom-8 shadow-2xl space-y-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-600/20 flex items-center justify-center text-2xl shadow-inner border border-fuchsia-500/20">📱</div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Social Optimization Hub</span>
-                    <span className="text-[8px] font-bold text-slate-500">Subject-aware neural crop and reframe for any platform</span>
+                    <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Social Hub</h3>
+                    <p className="text-[10px] font-medium text-slate-500">Subject-aware neural crop and reframe</p>
                   </div>
                 </div>
                 {activeSocial && (
-                  <div className="text-[9px] font-black text-fuchsia-400 uppercase tracking-widest bg-fuchsia-500/10 px-3 py-1.5 rounded-full border border-fuchsia-500/20">
+                  <div className="text-[10px] font-black text-fuchsia-400 uppercase tracking-widest bg-fuchsia-500/10 px-4 py-2 rounded-xl border border-fuchsia-500/20">
                     Target: {SOCIAL_PRESETS.find(s => s.id === activeSocial)?.label}
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-5 gap-3">
+
+              <div className="grid grid-cols-5 gap-4">
                 {SOCIAL_PRESETS.map(social => (
                   <button 
                     key={social.id} 
                     onClick={() => setActiveSocial(social.id)} 
-                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${activeSocial === social.id ? 'bg-fuchsia-600/10 border-fuchsia-500 shadow-lg' : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'}`}
+                    className={`group relative flex flex-col items-center gap-3 p-5 rounded-[2rem] border-2 transition-all duration-300 ${activeSocial === social.id ? 'bg-fuchsia-600 border-fuchsia-400 shadow-[0_0_30px_rgba(217,70,239,0.3)] scale-105' : 'bg-slate-950/40 border-slate-800 hover:border-slate-600 hover:bg-slate-900/60'}`}
                   >
-                    <span className="text-2xl mb-1">{social.icon}</span>
+                    <span className={`text-3xl transition-transform duration-300 ${activeSocial === social.id ? 'scale-110' : 'group-hover:scale-110'}`}>{social.icon}</span>
                     <div className="flex flex-col items-center">
-                      <span className="text-[9px] font-black uppercase tracking-tight text-slate-100">{social.label}</span>
-                      <span className="text-[7px] font-bold text-slate-500 uppercase tracking-tighter">{social.platform}</span>
+                      <span className={`text-[10px] font-black uppercase tracking-tight transition-colors ${activeSocial === social.id ? 'text-white' : 'text-slate-100'}`}>{social.label}</span>
+                      <span className={`text-[7px] font-bold uppercase tracking-tighter ${activeSocial === social.id ? 'text-white/70' : 'text-slate-500'}`}>{social.platform}</span>
                     </div>
+                    {activeSocial === social.id && <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow-lg animate-in zoom-in duration-300"><svg className="w-2.5 h-2.5 text-fuchsia-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg></div>}
                   </button>
                 ))}
               </div>
-              <div className="space-y-3">
-                 <div className="h-px bg-slate-800" />
-                 <div className="flex gap-3">
-                    <textarea 
-                      value={prompt} 
-                      onChange={(e) => setPrompt(e.target.value)}
-                      placeholder="Optional framing guidance (e.g. 'Focus on the eyes', 'Keep the horizon level')..."
-                      className="flex-1 bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-inner"
-                      rows={2}
-                    />
-                    <button 
-                      onClick={handleAction} 
-                      disabled={state.isProcessing || !activeSocial} 
-                      className="px-8 bg-fuchsia-600 rounded-xl text-white font-black uppercase text-[10px] tracking-widest hover:bg-fuchsia-500 disabled:opacity-30 transition-all shadow-xl active:scale-95"
-                    >
-                      Creative Reframe
-                    </button>
-                 </div>
+
+              <div className="flex gap-4 items-end">
+                <div className="flex-1 space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Framing Guidance</label>
+                  <textarea 
+                    value={prompt} 
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Optional guidance (e.g. 'Focus on the eyes', 'Keep the horizon level')..."
+                    className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl px-5 py-4 text-xs focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-inner placeholder-slate-700"
+                    rows={2}
+                  />
+                </div>
+                <button 
+                  onClick={handleAction} 
+                  disabled={state.isProcessing || !activeSocial} 
+                  className="h-[72px] px-10 bg-fuchsia-600 rounded-2xl text-white font-black uppercase text-xs tracking-[0.2em] hover:bg-fuchsia-500 disabled:opacity-30 transition-all shadow-2xl shadow-fuchsia-600/20 active:scale-95 flex items-center gap-3"
+                >
+                  <span>Reframe</span>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                </button>
               </div>
             </div>
           )}
-          
+
           {state.activeMode === EditMode.POSTER && (
-            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-2xl border border-slate-800 rounded-3xl p-8 animate-in slide-in-from-bottom-8 shadow-2xl space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">📜</span>
+            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 animate-in slide-in-from-bottom-8 shadow-2xl space-y-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-600/20 flex items-center justify-center text-2xl shadow-inner border border-fuchsia-500/20">📜</div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Creative Poster Architect</span>
-                    <span className="text-[8px] font-bold text-slate-500">Professional promotional layouts & flyers</span>
+                    <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Poster Architect</h3>
+                    <p className="text-[10px] font-medium text-slate-500">Professional promotional layouts & flyers</p>
                   </div>
                 </div>
                 {activePoster && (
-                  <div className="text-[9px] font-black text-fuchsia-400 uppercase tracking-widest bg-fuchsia-500/10 px-3 py-1.5 rounded-full border border-fuchsia-500/20">
+                  <div className="text-[10px] font-black text-fuchsia-400 uppercase tracking-widest bg-fuchsia-500/10 px-4 py-2 rounded-xl border border-fuchsia-500/20">
                     Style: {POSTER_PRESETS.find(p => p.id === activePoster)?.label}
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-5 gap-3">
+
+              <div className="grid grid-cols-5 gap-4">
                 {POSTER_PRESETS.map(poster => (
                   <button 
                     key={poster.id} 
                     onClick={() => setActivePoster(poster.id)} 
-                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${activePoster === poster.id ? 'bg-fuchsia-600/10 border-fuchsia-500 shadow-lg' : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'}`}
+                    className={`group relative flex flex-col items-center gap-3 p-5 rounded-[2rem] border-2 transition-all duration-300 ${activePoster === poster.id ? 'bg-fuchsia-600 border-fuchsia-400 shadow-[0_0_30px_rgba(217,70,239,0.3)] scale-105' : 'bg-slate-950/40 border-slate-800 hover:border-slate-600 hover:bg-slate-900/60'}`}
                   >
-                    <span className="text-2xl mb-1">{poster.icon}</span>
-                    <span className="text-[9px] font-black uppercase tracking-tight text-slate-100">{poster.label}</span>
+                    <span className={`text-3xl transition-transform duration-300 ${activePoster === poster.id ? 'scale-110' : 'group-hover:scale-110'}`}>{poster.icon}</span>
+                    <span className={`text-[10px] font-black uppercase tracking-tight transition-colors ${activePoster === poster.id ? 'text-white' : 'text-slate-100'}`}>{poster.label}</span>
+                    {activePoster === poster.id && <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow-lg animate-in zoom-in duration-300"><svg className="w-2.5 h-2.5 text-fuchsia-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg></div>}
                   </button>
                 ))}
               </div>
-              <div className="space-y-3">
-                 <div className="h-px bg-slate-800" />
-                 <div className="flex gap-3">
-                    <textarea 
-                      value={prompt} 
-                      onChange={(e) => setPrompt(e.target.value)}
-                      placeholder="Event details, headlines, or specific style guidance..."
-                      className="flex-1 bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-inner"
-                      rows={2}
-                    />
-                    <button 
-                      onClick={handleAction} 
-                      disabled={state.isProcessing || !activePoster} 
-                      className="px-8 bg-fuchsia-600 rounded-xl text-white font-black uppercase text-[10px] tracking-widest hover:bg-fuchsia-500 disabled:opacity-30 transition-all shadow-xl active:scale-95"
-                    >
-                      Design Poster
-                    </button>
-                 </div>
+
+              <div className="flex gap-4 items-end">
+                <div className="flex-1 space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Event Details</label>
+                  <textarea 
+                    value={prompt} 
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Event details, headlines, or specific style guidance..."
+                    className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl px-5 py-4 text-xs focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-inner placeholder-slate-700"
+                    rows={2}
+                  />
+                </div>
+                <button 
+                  onClick={handleAction} 
+                  disabled={state.isProcessing || !activePoster} 
+                  className="h-[72px] px-10 bg-fuchsia-600 rounded-2xl text-white font-black uppercase text-xs tracking-[0.2em] hover:bg-fuchsia-500 disabled:opacity-30 transition-all shadow-2xl shadow-fuchsia-600/20 active:scale-95 flex items-center gap-3"
+                >
+                  <span>Design</span>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                </button>
               </div>
             </div>
           )}
 
           {state.activeMode === EditMode.LOGO && (
-            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-2xl border border-slate-800 rounded-3xl p-8 animate-in slide-in-from-bottom-8 shadow-2xl space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">🏷️</span>
+            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 animate-in slide-in-from-bottom-8 shadow-2xl space-y-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-600/20 flex items-center justify-center text-2xl shadow-inner border border-fuchsia-500/20">🏷️</div>
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-fuchsia-500 uppercase tracking-[0.2em]">Creative Logo Designer</span>
-                    <span className="text-[8px] font-bold text-slate-500">Brand identity and business logos</span>
+                    <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Logo Designer</h3>
+                    <p className="text-[10px] font-medium text-slate-500">Brand identity and business logos</p>
                   </div>
                 </div>
                 {activeLogo && (
-                  <div className="text-[9px] font-black text-fuchsia-400 uppercase tracking-widest bg-fuchsia-500/10 px-3 py-1.5 rounded-full border border-fuchsia-500/20">
+                  <div className="text-[10px] font-black text-fuchsia-400 uppercase tracking-widest bg-fuchsia-500/10 px-4 py-2 rounded-xl border border-fuchsia-500/20">
                     Style: {LOGO_PRESETS.find(l => l.id === activeLogo)?.label}
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-5 gap-3">
+
+              <div className="grid grid-cols-5 gap-4">
                 {LOGO_PRESETS.map(logo => (
                   <button 
                     key={logo.id} 
                     onClick={() => setActiveLogo(logo.id)} 
-                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${activeLogo === logo.id ? 'bg-fuchsia-600/10 border-fuchsia-500 shadow-lg' : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'}`}
+                    className={`group relative flex flex-col items-center gap-3 p-5 rounded-[2rem] border-2 transition-all duration-300 ${activeLogo === logo.id ? 'bg-fuchsia-600 border-fuchsia-400 shadow-[0_0_30px_rgba(217,70,239,0.3)] scale-105' : 'bg-slate-950/40 border-slate-800 hover:border-slate-600 hover:bg-slate-900/60'}`}
                   >
-                    <span className="text-2xl mb-1">{logo.icon}</span>
-                    <span className="text-[9px] font-black uppercase tracking-tight text-slate-100">{logo.label}</span>
+                    <span className={`text-3xl transition-transform duration-300 ${activeLogo === logo.id ? 'scale-110' : 'group-hover:scale-110'}`}>{logo.icon}</span>
+                    <span className={`text-[10px] font-black uppercase tracking-tight transition-colors ${activeLogo === logo.id ? 'text-white' : 'text-slate-100'}`}>{logo.label}</span>
+                    {activeLogo === logo.id && <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow-lg animate-in zoom-in duration-300"><svg className="w-2.5 h-2.5 text-fuchsia-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg></div>}
                   </button>
                 ))}
               </div>
-              <div className="space-y-3">
-                 <div className="h-px bg-slate-800" />
-                 <div className="flex gap-3">
-                    <textarea 
-                      value={prompt} 
-                      onChange={(e) => setPrompt(e.target.value)}
-                      placeholder="Business name, industry, or specific logo concepts..."
-                      className="flex-1 bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-inner"
-                      rows={2}
-                    />
-                    <button 
-                      onClick={handleAction} 
-                      disabled={state.isProcessing || !activeLogo} 
-                      className="px-8 bg-fuchsia-600 rounded-xl text-white font-black uppercase text-[10px] tracking-widest hover:bg-fuchsia-500 disabled:opacity-30 transition-all shadow-xl active:scale-95"
-                    >
-                      Design Logo
-                    </button>
-                 </div>
+
+              <div className="flex gap-4 items-end">
+                <div className="flex-1 space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Brand Concept</label>
+                  <textarea 
+                    value={prompt} 
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder="Business name, industry, or specific logo concepts..."
+                    className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl px-5 py-4 text-xs focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-inner placeholder-slate-700"
+                    rows={2}
+                  />
+                </div>
+                <button 
+                  onClick={handleAction} 
+                  disabled={state.isProcessing || !activeLogo} 
+                  className="h-[72px] px-10 bg-fuchsia-600 rounded-2xl text-white font-black uppercase text-xs tracking-[0.2em] hover:bg-fuchsia-500 disabled:opacity-30 transition-all shadow-2xl shadow-fuchsia-600/20 active:scale-95 flex items-center gap-3"
+                >
+                  <span>Generate</span>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                </button>
               </div>
             </div>
           )}
@@ -1432,29 +1587,34 @@ const App: React.FC = () => {
         </div>
 
         {/* Mobile Floating Island Dock */}
-        <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-sm h-16 bg-slate-900/70 backdrop-blur-2xl border border-white/5 rounded-full flex items-center justify-around px-4 shadow-2xl z-[90] ring-1 ring-white/10">
-          <button onClick={() => { closeMobilePanels(); setShowMobileTools(true); }} className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-all ${showMobileTools ? 'bg-fuchsia-600 text-white scale-110' : 'text-slate-400'}`}>
-            <span className="text-xl">🧰</span>
-          </button>
-          <button onClick={() => { closeMobilePanels(); setShowMobileSuite(true); }} className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-all ${showMobileSuite ? 'bg-fuchsia-600 text-white scale-110' : 'text-slate-400'}`}>
-            <span className="text-xl">✨</span>
-          </button>
-          <button onClick={() => { closeMobilePanels(); setShowMobileFilters(true); }} className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-all ${showMobileFilters ? 'bg-fuchsia-600 text-white scale-110' : 'text-slate-400'}`}>
-            <span className="text-xl">🎨</span>
-          </button>
-          <button onClick={() => { closeMobilePanels(); setShowMobileLayers(true); }} className={`flex flex-col items-center justify-center w-12 h-12 rounded-full transition-all ${showMobileLayers ? 'bg-fuchsia-600 text-white scale-110' : 'text-slate-400'}`}>
-            <span className="text-xl">📑</span>
-          </button>
+        <nav className="md:hidden fixed bottom-8 left-1/2 -translate-x-1/2 w-[92%] max-w-sm h-20 bg-slate-900/80 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] flex items-center justify-around px-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[90] ring-1 ring-white/5">
+          {[
+            { id: 'tools', icon: '🧰', label: 'Tools', active: showMobileTools, onClick: () => { closeMobilePanels(); setShowMobileTools(true); } },
+            { id: 'suite', icon: '✨', label: 'Suite', active: showMobileSuite, onClick: () => { closeMobilePanels(); setShowMobileSuite(true); } },
+            { id: 'filters', icon: '🎨', label: 'Looks', active: showMobileFilters, onClick: () => { closeMobilePanels(); setShowMobileFilters(true); } },
+            { id: 'layers', icon: '📑', label: 'Stack', active: showMobileLayers, onClick: () => { closeMobilePanels(); setShowMobileLayers(true); } },
+          ].map(item => (
+            <button 
+              key={item.id}
+              onClick={item.onClick} 
+              className={`flex flex-col items-center justify-center gap-1 transition-all duration-300 ${item.active ? 'scale-110' : 'opacity-50'}`}
+            >
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all ${item.active ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/30' : 'text-slate-400'}`}>
+                {item.icon}
+              </div>
+              <span className={`text-[8px] font-black uppercase tracking-widest ${item.active ? 'text-fuchsia-400' : 'text-slate-500'}`}>{item.label}</span>
+            </button>
+          ))}
         </nav>
 
         {/* Mobile Floating Action Button (FAB) */}
-        {!state.isProcessing && state.layers.length > 0 && !showMobileLayers && !showMobileTools && !showMobileFilters && state.activeMode !== EditMode.COLLAGE && (
-          <div className="md:hidden fixed bottom-24 right-6 z-[80] animate-in zoom-in slide-in-from-bottom-4 duration-500">
+        {!state.isProcessing && state.layers.length > 0 && !showMobileLayers && !showMobileTools && !showMobileFilters && !showMobileSuite && state.activeMode !== EditMode.COLLAGE && (
+          <div className="md:hidden fixed bottom-32 right-8 z-[80] animate-in zoom-in slide-in-from-bottom-4 duration-500">
             <button 
               onClick={handleAction}
-              className="w-16 h-16 bg-fuchsia-600 rounded-full flex items-center justify-center text-white shadow-2xl shadow-fuchsia-600/40 active:scale-90 transition-transform ring-4 ring-slate-950"
+              className="w-16 h-16 bg-fuchsia-600 rounded-2xl flex items-center justify-center text-white shadow-[0_15px_30px_rgba(217,70,239,0.4)] active:scale-90 transition-all ring-4 ring-slate-950 group"
             >
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+              <svg className="w-8 h-8 transition-transform group-active:rotate-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
             </button>
           </div>
         )}
@@ -1506,17 +1666,47 @@ const App: React.FC = () => {
         </MobileBottomSheet>
 
         <MobileBottomSheet isOpen={showMobileFilters} onClose={() => setShowMobileFilters(false)} title="Creative Looks Library">
-          <div className="grid grid-cols-3 gap-3">
-            {PRESET_FILTERS.map(filter => (
-              <button 
-                key={filter.id} 
-                onClick={() => handleApplyFilter(filter)}
-                className="flex flex-col items-center gap-2 p-5 rounded-3xl bg-slate-800/40 border border-slate-800 active:bg-fuchsia-600/20 active:border-fuchsia-500 transition-all"
-              >
-                <span className="text-2xl">{filter.icon}</span>
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-tight">{filter.label}</span>
-              </button>
-            ))}
+          <div className="space-y-6">
+            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar no-scrollbar">
+              {FILTER_CATEGORIES.map(cat => (
+                <button 
+                  key={cat.id}
+                  onClick={() => setFilterCategory(cat.id)}
+                  className={`flex items-center gap-2 px-5 py-3 rounded-2xl border transition-all whitespace-nowrap ${filterCategory === cat.id ? 'bg-fuchsia-600 border-fuchsia-400 text-white shadow-lg shadow-fuchsia-600/20' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                >
+                  <span className="text-sm">{cat.icon}</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">{cat.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {PRESET_FILTERS.filter(f => filterCategory === 'all' || f.category === filterCategory).map(filter => (
+                <button 
+                  key={filter.id} 
+                  onClick={() => { handleApplyFilter(filter); setShowMobileFilters(false); }}
+                  className="group relative flex flex-col items-start p-0 rounded-3xl bg-slate-800 border border-slate-700 active:border-fuchsia-500 transition-all overflow-hidden"
+                >
+                  <div className="w-full aspect-[4/3] relative overflow-hidden bg-slate-900">
+                    {currentActiveLayer ? (
+                      <img 
+                        src={currentActiveLayer.url} 
+                        style={{ filter: filter.prompt }} 
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-3xl opacity-20">{filter.icon}</div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80" />
+                    <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                      <span className="text-lg">{filter.icon}</span>
+                      <span className="text-[10px] font-black text-white uppercase tracking-widest">{filter.label}</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </MobileBottomSheet>
 

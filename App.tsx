@@ -454,8 +454,17 @@ const App: React.FC = () => {
             resultUrl = currentActiveLayer.url;
           }
         } else if (isPoster || isLogo) {
-          // Free replacement: Just apply a filter for now
-          const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, cssFilter: (l.cssFilter ? l.cssFilter + ' ' : '') + "contrast(1.2) saturate(1.1)" } : l);
+          const preset = isPoster 
+            ? POSTER_PRESETS.find(p => p.id === activePoster)
+            : LOGO_PRESETS.find(l => l.id === activeLogo);
+          
+          const combinedPrompt = `${preset?.prompt || ''} ${prompt}`.trim();
+          // In a real app, we'd call an AI API here. For now, we simulate with a filter and store the prompt.
+          const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { 
+            ...l, 
+            cssFilter: (l.cssFilter ? l.cssFilter + ' ' : '') + "contrast(1.2) saturate(1.1)",
+            neuralPrompt: combinedPrompt
+          } : l);
           addToHistory(newLayers, state.activeLayerId!, actionLabelFor(state.activeMode));
           setPrompt('');
           setShowMobileTools(false);
@@ -473,6 +482,7 @@ const App: React.FC = () => {
           const filters = `brightness(${1 + rawParams.exposure * 0.2}) contrast(${1 + rawParams.highlights * 0.01}) saturate(${1 + rawParams.temperature > 6000 ? 1.2 : 0.8}) sepia(${rawParams.tint > 0 ? 0.2 : 0})`;
           const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, cssFilter: (l.cssFilter ? l.cssFilter + ' ' : '') + filters, rawParams: rawParams } : l);
           addToHistory(newLayers, state.activeLayerId!, actionLabelFor(state.activeMode));
+          resetRawParams();
           setPrompt('');
           setShowMobileTools(false);
           setShowMobileFilters(false);
@@ -489,6 +499,7 @@ const App: React.FC = () => {
           const filters = `brightness(${brightness}%) saturate(${saturation}%) hue-rotate(${hue}deg)`;
           const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, cssFilter: (l.cssFilter ? l.cssFilter + ' ' : '') + filters } : l);
           addToHistory(newLayers, state.activeLayerId!, actionLabelFor(state.activeMode));
+          resetColorLab();
           setPrompt('');
           setShowMobileTools(false);
           setShowMobileFilters(false);
@@ -497,6 +508,7 @@ const App: React.FC = () => {
           const filters = `blur(${blur / 10}px)`;
           const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, cssFilter: (l.cssFilter ? l.cssFilter + ' ' : '') + filters, blur: blur } : l);
           addToHistory(newLayers, state.activeLayerId!, actionLabelFor(state.activeMode));
+          resetColorLab();
           setPrompt('');
           setShowMobileTools(false);
           setShowMobileFilters(false);
@@ -1229,11 +1241,18 @@ const App: React.FC = () => {
                     style={{
                       opacity: state.activeMode === EditMode.COLLAGE ? 1 : layer.isVisible ? layer.opacity / 100 : 0,
                       mixBlendMode: state.activeMode === EditMode.COLLAGE ? 'normal' : layer.blendMode,
-                      filter: layer.id === state.activeLayerId && state.activeMode === EditMode.COLOR 
-                        ? `brightness(${brightness}%) saturate(${saturation}%) hue-rotate(${hue}deg) ${layer.cssFilter || ''}` 
-                        : layer.id === state.activeLayerId && state.activeMode === EditMode.BLUR
-                        ? `blur(${blur / 10}px) ${layer.cssFilter || ''}`
-                        : layer.cssFilter || 'none'
+                      filter: (() => {
+                        if (layer.id !== state.activeLayerId) return layer.cssFilter || 'none';
+                        let currentFilters = layer.cssFilter || '';
+                        if (state.activeMode === EditMode.COLOR) {
+                          currentFilters += ` brightness(${brightness}%) saturate(${saturation}%) hue-rotate(${hue}deg)`;
+                        } else if (state.activeMode === EditMode.BLUR) {
+                          currentFilters += ` blur(${blur / 10}px)`;
+                        } else if (state.activeMode === EditMode.RAW_DEV) {
+                          currentFilters += ` brightness(${1 + rawParams.exposure * 0.2}) contrast(${1 + rawParams.highlights * 0.01}) saturate(${rawParams.temperature > 6000 ? 1.1 : 0.9}) sepia(${rawParams.tint > 0 ? 0.1 : 0})`;
+                        }
+                        return currentFilters.trim() || 'none';
+                      })()
                     }}
                   />
                 ))}

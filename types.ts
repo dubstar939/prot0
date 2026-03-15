@@ -22,6 +22,7 @@ export interface Layer {
   isRaw?: boolean; // Indicates if the layer originated from a RAW file
   rawParams?: RawDevelopmentParams; // Parameters for the Creative RAW Developer
   blur?: number; // Blur intensity (0-100)
+  cssFilter?: string; // Non-destructive CSS filter
 }
 
 export interface LayerGroup {

@@ -5,29 +5,30 @@ import { applyFiltersToImage, resizeImageLocally, createCollageLocally, cropImag
 
 const FILTER_CATEGORIES = [
   { id: 'all', label: 'All', icon: '🌈' },
-  { id: 'cinematic', label: 'Film', icon: '🎬' },
-  { id: 'artistic', label: 'Art', icon: '🎨' },
-  { id: 'vintage', label: 'Retro', icon: '🎞️' },
+  { id: 'vintage', label: 'Vintage', icon: '🎞️' },
+  { id: 'bw', label: 'Black & White', icon: '🏁' },
+  { id: 'artistic', label: 'Artistic', icon: '🎨' },
+  { id: 'cinematic', label: 'Cinematic', icon: '🎬' },
   { id: 'experimental', label: 'FX', icon: '🧪' },
 ];
 
 const PRESET_FILTERS: (FilterPreset & { category: string })[] = [
   { id: 'vintage', label: 'Vintage', icon: '📷', color: 'bg-amber-500', category: 'vintage', prompt: "sepia(0.5) contrast(1.2) brightness(0.9) saturate(0.8)" },
-  { id: 'mono', label: 'Monochrome', icon: '🏁', color: 'bg-slate-500', category: 'vintage', prompt: "grayscale(1) contrast(1.5)" },
+  { id: 'kodachrome', label: 'Kodachrome', icon: '🎞️', color: 'bg-yellow-600', category: 'vintage', prompt: "sepia(0.2) contrast(1.3) saturate(1.4) hue-rotate(-5deg)" },
+  { id: 'mono', label: 'Monochrome', icon: '🏁', color: 'bg-slate-500', category: 'bw', prompt: "grayscale(1) contrast(1.5)" },
+  { id: 'noir', label: 'Noir', icon: '🕵️', color: 'bg-zinc-900', category: 'bw', prompt: "grayscale(1) contrast(2) brightness(0.8)" },
   { id: 'cinematic', label: 'Cinematic', icon: '🎬', color: 'bg-cyan-500', category: 'cinematic', prompt: "contrast(1.3) saturate(1.2) hue-rotate(-10deg) brightness(0.9)" },
+  { id: 'technicolor', label: 'Technicolor', icon: '🌈', color: 'bg-red-500', category: 'cinematic', prompt: "saturate(2.5) contrast(1.2) brightness(1.1)" },
   { id: 'cyberpunk', label: 'Cyberpunk', icon: '🏮', color: 'bg-fuchsia-500', category: 'artistic', prompt: "hue-rotate(280deg) saturate(2) contrast(1.2) brightness(1.1)" },
   { id: 'painting', label: 'Oil Painting', icon: '🎨', color: 'bg-orange-500', category: 'artistic', prompt: "contrast(1.1) saturate(1.5) blur(1px)" },
   { id: 'sketch', label: 'Sketch', icon: '✏️', color: 'bg-zinc-400', category: 'artistic', prompt: "grayscale(1) contrast(2) invert(1) opacity(0.8)" },
-  { id: 'noir', label: 'Noir', icon: '🕵️', color: 'bg-zinc-900', category: 'cinematic', prompt: "grayscale(1) contrast(2) brightness(0.8)" },
   { id: 'vaporwave', label: 'Vaporwave', icon: '🌴', color: 'bg-purple-500', category: 'artistic', prompt: "hue-rotate(300deg) saturate(1.8) brightness(1.2)" },
   { id: 'anime', label: 'Anime', icon: '⛩️', color: 'bg-rose-400', category: 'artistic', prompt: "saturate(1.6) contrast(1.1) brightness(1.1)" },
+  { id: 'dreamy', label: 'Dreamy', icon: '☁️', color: 'bg-blue-200', category: 'artistic', prompt: "opacity(0.9) blur(1px) saturate(1.2) brightness(1.1)" },
   { id: 'solar', label: 'Solar', icon: '☀️', color: 'bg-orange-400', category: 'experimental', prompt: "invert(0.5) hue-rotate(180deg) saturate(2)" },
   { id: 'blueprint', label: 'Blueprint', icon: '📐', color: 'bg-blue-600', category: 'experimental', prompt: "sepia(1) hue-rotate(190deg) saturate(5) contrast(1.5) invert(0.2)" },
   { id: 'infrared', label: 'Infrared', icon: '⚛️', color: 'bg-pink-300', category: 'experimental', prompt: "hue-rotate(150deg) saturate(1.5) invert(0.1)" },
-  { id: 'technicolor', label: 'Technicolor', icon: '🌈', color: 'bg-red-500', category: 'cinematic', prompt: "saturate(2.5) contrast(1.2) brightness(1.1)" },
-  { id: 'kodachrome', label: 'Kodachrome', icon: '🎞️', color: 'bg-yellow-600', category: 'vintage', prompt: "sepia(0.2) contrast(1.3) saturate(1.4) hue-rotate(-5deg)" },
   { id: 'glitch', label: 'Glitch', icon: '👾', color: 'bg-green-500', category: 'experimental', prompt: "hue-rotate(90deg) saturate(3) contrast(1.5) invert(0.1) blur(0.5px)" },
-  { id: 'dreamy', label: 'Dreamy', icon: '☁️', color: 'bg-blue-200', category: 'artistic', prompt: "opacity(0.9) blur(1px) saturate(1.2) brightness(1.1)" },
 ];
 
 const STYLE_PRESETS = [
@@ -140,6 +141,7 @@ const App: React.FC = () => {
   const [showMobileTools, setShowMobileTools] = useState(false);
   const [showMobileSuite, setShowMobileSuite] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [showMobileControls, setShowMobileControls] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [exportConfig, setExportConfig] = useState<ExportConfig>({ format: 'image/jpeg', quality: 90 });
@@ -424,7 +426,13 @@ const App: React.FC = () => {
         } else if (isStyleTransfer) {
           const style = STYLE_PRESETS.find(s => s.id === activeStyle);
           if (!style) { handleError("Please select a style first."); return; }
-          resultUrl = await applyFiltersToImage(currentActiveLayer.url, style.prompt);
+          // Non-destructive style transfer
+          const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, cssFilter: style.prompt } : l);
+          addToHistory(newLayers, state.activeLayerId!, actionLabelFor(state.activeMode));
+          setPrompt('');
+          setShowMobileTools(false);
+          setShowMobileFilters(false);
+          return;
         } else if (isSocial) {
           const social = SOCIAL_PRESETS.find(s => s.id === activeSocial);
           if (!social) { handleError("Select a platform."); return; }
@@ -447,27 +455,63 @@ const App: React.FC = () => {
           }
         } else if (isPoster || isLogo) {
           // Free replacement: Just apply a filter for now
-          resultUrl = await applyFiltersToImage(currentActiveLayer.url, "contrast(1.2) saturate(1.1)");
+          const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, cssFilter: (l.cssFilter ? l.cssFilter + ' ' : '') + "contrast(1.2) saturate(1.1)" } : l);
+          addToHistory(newLayers, state.activeLayerId!, actionLabelFor(state.activeMode));
+          setPrompt('');
+          setShowMobileTools(false);
+          setShowMobileFilters(false);
+          return;
         } else if (isBackgroundRemoval) {
           // Free replacement: Impossible client-side, just desaturate background (simulated)
-          resultUrl = await applyFiltersToImage(currentActiveLayer.url, "grayscale(0.5) opacity(0.8)");
+          const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, cssFilter: (l.cssFilter ? l.cssFilter + ' ' : '') + "grayscale(0.5) opacity(0.8)" } : l);
+          addToHistory(newLayers, state.activeLayerId!, actionLabelFor(state.activeMode));
+          setPrompt('');
+          setShowMobileTools(false);
+          setShowMobileFilters(false);
+          return;
         } else if (isRawDev) {
-          const filters = `brightness(${100 + rawParams.exposure * 20}%) contrast(${100 + rawParams.highlights / 2}%) saturate(${100 + rawParams.shadows / 2}%)`;
-          resultUrl = await applyFiltersToImage(currentActiveLayer.url, filters);
+          const filters = `brightness(${1 + rawParams.exposure * 0.2}) contrast(${1 + rawParams.highlights * 0.01}) saturate(${1 + rawParams.temperature > 6000 ? 1.2 : 0.8}) sepia(${rawParams.tint > 0 ? 0.2 : 0})`;
+          const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, cssFilter: (l.cssFilter ? l.cssFilter + ' ' : '') + filters, rawParams: rawParams } : l);
+          addToHistory(newLayers, state.activeLayerId!, actionLabelFor(state.activeMode));
+          setPrompt('');
+          setShowMobileTools(false);
+          setShowMobileFilters(false);
+          return;
         } else if (isRemoval) {
           // Free replacement: Clear the area on canvas
-          resultUrl = currentActiveLayer.url; 
+          const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, url: currentActiveLayer.url } : l);
+          addToHistory(newLayers, state.activeLayerId!, actionLabelFor(state.activeMode));
+          setPrompt('');
+          setShowMobileTools(false);
+          setShowMobileFilters(false);
+          return;
         } else if (isColorGrading) {
           const filters = `brightness(${brightness}%) saturate(${saturation}%) hue-rotate(${hue}deg)`;
-          resultUrl = await applyFiltersToImage(currentActiveLayer.url, filters);
+          const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, cssFilter: (l.cssFilter ? l.cssFilter + ' ' : '') + filters } : l);
+          addToHistory(newLayers, state.activeLayerId!, actionLabelFor(state.activeMode));
+          setPrompt('');
+          setShowMobileTools(false);
+          setShowMobileFilters(false);
+          return;
         } else if (isBlur) {
-          resultUrl = await applyFiltersToImage(currentActiveLayer.url, `blur(${blur / 5}px)`);
+          const filters = `blur(${blur / 10}px)`;
+          const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, cssFilter: (l.cssFilter ? l.cssFilter + ' ' : '') + filters, blur: blur } : l);
+          addToHistory(newLayers, state.activeLayerId!, actionLabelFor(state.activeMode));
+          setPrompt('');
+          setShowMobileTools(false);
+          setShowMobileFilters(false);
+          return;
         } else {
           // Generic edit: apply a random filter
-          resultUrl = await applyFiltersToImage(currentActiveLayer.url, "contrast(1.1)");
+          const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, cssFilter: (l.cssFilter ? l.cssFilter + ' ' : '') + "contrast(1.1)" } : l);
+          addToHistory(newLayers, state.activeLayerId!, actionLabelFor(state.activeMode));
+          setPrompt('');
+          setShowMobileTools(false);
+          setShowMobileFilters(false);
+          return;
         }
         
-        const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, url: resultUrl, rawParams: isRawDev ? rawParams : l.rawParams, blur: isBlur ? blur : l.blur } : l);
+        const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, url: resultUrl } : l);
         addToHistory(newLayers, state.activeLayerId!, actionLabelFor(state.activeMode));
       }
       setPrompt('');
@@ -670,8 +714,8 @@ const App: React.FC = () => {
     
     setState(prev => ({ ...prev, isProcessing: true, error: null }));
     try {
-      const resultUrl = await applyFiltersToImage(currentActiveLayer.url, filter.prompt);
-      const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, url: resultUrl } : l);
+      // Non-destructive filter application
+      const newLayers = state.layers.map(l => l.id === state.activeLayerId ? { ...l, cssFilter: filter.prompt } : l);
       addToHistory(newLayers, state.activeLayerId!, `Filter: ${filter.label}`);
       setPrompt('');
       setShowMobileFilters(false);
@@ -719,7 +763,9 @@ const App: React.FC = () => {
       img.onload = () => {
         ctx.globalAlpha = layer.opacity / 100;
         ctx.globalCompositeOperation = getCanvasCompositeOp(layer.blendMode);
+        ctx.filter = layer.cssFilter || 'none';
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.filter = 'none';
         loaded++;
         if (loaded === visibleLayers.length) {
           finish();
@@ -947,6 +993,7 @@ const App: React.FC = () => {
     setShowMobileTools(false);
     setShowMobileSuite(false);
     setShowMobileFilters(false);
+    setShowMobileControls(false);
   };
 
   const MobileBottomSheet: React.FC<{ isOpen: boolean, onClose: () => void, title: string, children: React.ReactNode }> = ({ isOpen, onClose, title, children }) => {
@@ -1041,17 +1088,23 @@ const App: React.FC = () => {
             <section className="flex-1 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-4 px-2">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Creative Looks</h3>
-                <div className="flex gap-1 bg-slate-900/50 p-1 rounded-lg border border-slate-800">
-                  {FILTER_CATEGORIES.map(cat => (
-                    <button 
-                      key={cat.id}
-                      onClick={() => setFilterCategory(cat.id)}
-                      className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${filterCategory === cat.id ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
-                      title={cat.label}
-                    >
-                      <span className="text-xs">{cat.icon}</span>
-                    </button>
-                  ))}
+                <div className="flex gap-2 items-center">
+                  <div className="flex gap-1">
+                    <button onClick={undo} disabled={state.historyIndex >= state.history.length - 1} className="p-1 text-slate-400 hover:text-white disabled:opacity-20 transition-all active:scale-90" title="Undo Filter"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg></button>
+                    <button onClick={redo} disabled={state.historyIndex === 0} className="p-1 text-slate-400 hover:text-white disabled:opacity-20 transition-all active:scale-90" title="Redo Filter"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" /></svg></button>
+                  </div>
+                  <div className="flex gap-1 bg-slate-900/50 p-1 rounded-lg border border-slate-800">
+                    {FILTER_CATEGORIES.map(cat => (
+                      <button 
+                        key={cat.id}
+                        onClick={() => setFilterCategory(cat.id)}
+                        className={`w-7 h-7 flex items-center justify-center rounded-md transition-all ${filterCategory === cat.id ? 'bg-fuchsia-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+                        title={cat.label}
+                      >
+                        <span className="text-xs">{cat.icon}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
               
@@ -1177,10 +1230,10 @@ const App: React.FC = () => {
                       opacity: state.activeMode === EditMode.COLLAGE ? 1 : layer.isVisible ? layer.opacity / 100 : 0,
                       mixBlendMode: state.activeMode === EditMode.COLLAGE ? 'normal' : layer.blendMode,
                       filter: layer.id === state.activeLayerId && state.activeMode === EditMode.COLOR 
-                        ? `brightness(${brightness}%) saturate(${saturation}%) hue-rotate(${hue}deg)` 
+                        ? `brightness(${brightness}%) saturate(${saturation}%) hue-rotate(${hue}deg) ${layer.cssFilter || ''}` 
                         : layer.id === state.activeLayerId && state.activeMode === EditMode.BLUR
-                        ? `blur(${blur / 10}px)`
-                        : 'none'
+                        ? `blur(${blur / 10}px) ${layer.cssFilter || ''}`
+                        : layer.cssFilter || 'none'
                     }}
                   />
                 ))}
@@ -1324,6 +1377,97 @@ const App: React.FC = () => {
                   onChange={(e) => setBrushSize(parseInt(e.target.value))} 
                   className="w-full accent-fuchsia-500 h-2 bg-slate-950 rounded-full cursor-pointer appearance-none border border-slate-800" 
                 />
+              </div>
+            </div>
+          )}
+
+          {state.activeMode === EditMode.ENHANCE && (
+            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 animate-in slide-in-from-bottom-8 shadow-2xl space-y-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-600/20 flex items-center justify-center text-2xl shadow-inner border border-fuchsia-500/20">🚀</div>
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Upscale & Enhance</h3>
+                    <p className="text-[10px] font-medium text-slate-500">Neural remastering and detail reconstruction</p>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-5 gap-4">
+                {ENHANCE_METHODS.map(method => (
+                  <button 
+                    key={method.id} 
+                    onClick={() => setActiveEnhanceMethod(method.id)} 
+                    className={`flex flex-col items-center gap-3 p-5 rounded-[2rem] border-2 transition-all ${activeEnhanceMethod === method.id ? 'bg-fuchsia-600 border-fuchsia-400 text-white shadow-lg shadow-fuchsia-600/20' : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-600'}`}
+                  >
+                    <span className="text-2xl">{method.icon}</span>
+                    <span className="text-[10px] font-black uppercase tracking-tight text-center leading-tight">{method.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {state.activeMode === EditMode.STYLE_TRANSFER && (
+            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 animate-in slide-in-from-bottom-8 shadow-2xl space-y-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-600/20 flex items-center justify-center text-2xl shadow-inner border border-fuchsia-500/20">🖼️</div>
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Creative Style</h3>
+                    <p className="text-[10px] font-medium text-slate-500">Transform your photo into a masterpiece</p>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-5 gap-4">
+                {STYLE_PRESETS.map(style => (
+                  <button 
+                    key={style.id} 
+                    onClick={() => setActiveStyle(style.id)} 
+                    className={`flex flex-col items-center gap-3 p-5 rounded-[2rem] border-2 transition-all ${activeStyle === style.id ? 'bg-fuchsia-600 border-fuchsia-400 text-white shadow-lg shadow-fuchsia-600/20' : 'bg-slate-950/40 border-slate-800 text-slate-400 hover:border-slate-600'}`}
+                  >
+                    <span className="text-2xl">{style.icon}</span>
+                    <span className="text-[10px] font-black uppercase tracking-tight text-center leading-tight">{style.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {state.activeMode === EditMode.COLOR && (
+            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 animate-in slide-in-from-bottom-8 shadow-2xl space-y-8">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-600/20 flex items-center justify-center text-2xl shadow-inner border border-fuchsia-500/20">🧪</div>
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Creative Color</h3>
+                    <p className="text-[10px] font-medium text-slate-500">Professional-grade color grading and adjustments</p>
+                  </div>
+                </div>
+                <button onClick={resetColorLab} className="px-6 py-2 bg-slate-800 text-slate-300 text-[10px] font-black uppercase tracking-widest rounded-xl border border-slate-700 hover:bg-slate-700 transition-all">Reset All</button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-8">
+                {[
+                  { label: 'Brightness', value: `${brightness}%`, min: 0, max: 200, step: 1, key: 'brightness', setter: setBrightness },
+                  { label: 'Saturation', value: `${saturation}%`, min: 0, max: 200, step: 1, key: 'saturation', setter: setSaturation },
+                  { label: 'Hue Rotate', value: `${hue}°`, min: 0, max: 360, step: 1, key: 'hue', setter: setHue },
+                ].map(param => (
+                  <div key={param.key} className="space-y-3">
+                    <div className="flex justify-between items-end">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{param.label}</span>
+                      <span className="text-xs font-black text-fuchsia-400">{param.value}</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min={param.min} 
+                      max={param.max} 
+                      step={param.step} 
+                      value={param.key === 'brightness' ? brightness : param.key === 'saturation' ? saturation : hue} 
+                      onChange={(e) => param.setter(parseInt(e.target.value))} 
+                      className="w-full accent-fuchsia-500 h-1.5 bg-slate-950 rounded-full cursor-pointer appearance-none border border-slate-800" 
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -1591,30 +1735,42 @@ const App: React.FC = () => {
           {[
             { id: 'tools', icon: '🧰', label: 'Tools', active: showMobileTools, onClick: () => { closeMobilePanels(); setShowMobileTools(true); } },
             { id: 'suite', icon: '✨', label: 'Suite', active: showMobileSuite, onClick: () => { closeMobilePanels(); setShowMobileSuite(true); } },
+            { id: 'controls', icon: '⚙️', label: 'Edit', active: showMobileControls, onClick: () => { closeMobilePanels(); setShowMobileControls(true); }, show: state.activeMode !== null },
             { id: 'filters', icon: '🎨', label: 'Looks', active: showMobileFilters, onClick: () => { closeMobilePanels(); setShowMobileFilters(true); } },
             { id: 'layers', icon: '📑', label: 'Stack', active: showMobileLayers, onClick: () => { closeMobilePanels(); setShowMobileLayers(true); } },
-          ].map(item => (
+          ].filter(item => item.show !== false).map(item => (
             <button 
               key={item.id}
               onClick={item.onClick} 
               className={`flex flex-col items-center justify-center gap-1 transition-all duration-300 ${item.active ? 'scale-110' : 'opacity-50'}`}
             >
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all ${item.active ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/30' : 'text-slate-400'}`}>
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xl transition-all ${item.active ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/30' : 'text-slate-400'}`}>
                 {item.icon}
               </div>
-              <span className={`text-[8px] font-black uppercase tracking-widest ${item.active ? 'text-fuchsia-400' : 'text-slate-500'}`}>{item.label}</span>
+              <span className={`text-[7px] font-black uppercase tracking-widest ${item.active ? 'text-fuchsia-400' : 'text-slate-500'}`}>{item.label}</span>
             </button>
           ))}
         </nav>
 
         {/* Mobile Floating Action Button (FAB) */}
-        {!state.isProcessing && state.layers.length > 0 && !showMobileLayers && !showMobileTools && !showMobileFilters && !showMobileSuite && state.activeMode !== EditMode.COLLAGE && (
+        {!state.isProcessing && state.layers.length > 0 && !showMobileLayers && !showMobileTools && !showMobileFilters && !showMobileSuite && (
           <div className="md:hidden fixed bottom-32 right-8 z-[80] animate-in zoom-in slide-in-from-bottom-4 duration-500">
             <button 
-              onClick={handleAction}
+              onClick={() => {
+                if (state.activeMode && !showMobileControls) {
+                  setShowMobileControls(true);
+                } else {
+                  handleAction();
+                  setShowMobileControls(false);
+                }
+              }}
               className="w-16 h-16 bg-fuchsia-600 rounded-2xl flex items-center justify-center text-white shadow-[0_15px_30px_rgba(217,70,239,0.4)] active:scale-90 transition-all ring-4 ring-slate-950 group"
             >
-              <svg className="w-8 h-8 transition-transform group-active:rotate-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+              {state.activeMode && !showMobileControls ? (
+                <span className="text-2xl">⚙️</span>
+              ) : (
+                <svg className="w-8 h-8 transition-transform group-active:rotate-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+              )}
             </button>
           </div>
         )}
@@ -1633,13 +1789,228 @@ const App: React.FC = () => {
             ].map(mode => (
               <button 
                 key={mode.id} 
-                onClick={() => { handleModeSwitch(mode.id as EditMode); setShowMobileTools(false); }}
+                onClick={() => { handleModeSwitch(mode.id as EditMode); setShowMobileTools(false); setShowMobileControls(true); }}
                 className={`flex flex-col items-center gap-3 p-6 rounded-3xl border-2 transition-all active:scale-95 ${state.activeMode === mode.id ? 'bg-fuchsia-600/10 border-fuchsia-500 text-white' : 'bg-slate-800/40 border-slate-800 text-slate-400'}`}
               >
                 <span className="text-3xl">{mode.icon}</span>
                 <span className="text-[10px] font-black uppercase tracking-widest">{mode.label}</span>
               </button>
             ))}
+          </div>
+        </MobileBottomSheet>
+
+        <MobileBottomSheet isOpen={showMobileControls} onClose={() => setShowMobileControls(false)} title="Tool Controls & Prompt">
+          <div className="space-y-8">
+            {state.activeMode === EditMode.ENHANCE && (
+              <div className="grid grid-cols-3 gap-3">
+                {ENHANCE_METHODS.map(method => (
+                  <button 
+                    key={method.id} 
+                    onClick={() => setActiveEnhanceMethod(method.id)} 
+                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${activeEnhanceMethod === method.id ? 'bg-fuchsia-600 border-fuchsia-400' : 'bg-slate-800 border-slate-700 opacity-60'}`}
+                  >
+                    <span className="text-xl">{method.icon}</span>
+                    <span className="text-[8px] font-black uppercase text-center">{method.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {state.activeMode === EditMode.STYLE_TRANSFER && (
+              <div className="grid grid-cols-3 gap-3">
+                {STYLE_PRESETS.map(style => (
+                  <button 
+                    key={style.id} 
+                    onClick={() => setActiveStyle(style.id)} 
+                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${activeStyle === style.id ? 'bg-fuchsia-600 border-fuchsia-400' : 'bg-slate-800 border-slate-700 opacity-60'}`}
+                  >
+                    <span className="text-xl">{style.icon}</span>
+                    <span className="text-[8px] font-black uppercase text-center">{style.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {state.activeMode === EditMode.COLOR && (
+              <div className="space-y-6">
+                {[
+                  { label: 'Brightness', value: `${brightness}%`, min: 0, max: 200, step: 1, key: 'brightness', setter: setBrightness },
+                  { label: 'Saturation', value: `${saturation}%`, min: 0, max: 200, step: 1, key: 'saturation', setter: setSaturation },
+                  { label: 'Hue Rotate', value: `${hue}°`, min: 0, max: 360, step: 1, key: 'hue', setter: setHue },
+                ].map(param => (
+                  <div key={param.key} className="space-y-3">
+                    <div className="flex justify-between items-end">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{param.label}</span>
+                      <span className="text-xs font-black text-fuchsia-400">{param.value}</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min={param.min} 
+                      max={param.max} 
+                      step={param.step} 
+                      value={param.key === 'brightness' ? brightness : param.key === 'saturation' ? saturation : hue} 
+                      onChange={(e) => param.setter(parseInt(e.target.value))} 
+                      className="w-full accent-fuchsia-500 h-2 bg-slate-950 rounded-full cursor-pointer appearance-none border border-slate-800" 
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {state.activeMode === EditMode.BLUR && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-end">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Blur Intensity</span>
+                  <span className="text-xl font-black text-white">{blur}%</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="100" 
+                  value={blur} 
+                  onChange={(e) => setBlur(parseInt(e.target.value))} 
+                  className="w-full accent-fuchsia-500 h-2 bg-slate-950 rounded-full cursor-pointer appearance-none border border-slate-800" 
+                />
+              </div>
+            )}
+
+            {state.activeMode === EditMode.REMOVE && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Brush Size</span>
+                  <span className="text-xl font-black text-white">{brushSize}PX</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="5" 
+                  max="200" 
+                  value={brushSize} 
+                  onChange={(e) => setBrushSize(parseInt(e.target.value))} 
+                  className="w-full accent-fuchsia-500 h-2 bg-slate-950 rounded-full cursor-pointer appearance-none border border-slate-800" 
+                />
+                <div className="flex gap-2">
+                  <button onClick={undoBrush} disabled={brushHistoryIndex < 0} className="flex-1 py-4 bg-slate-800 text-slate-300 rounded-2xl border border-slate-700 disabled:opacity-20">Undo</button>
+                  <button onClick={redoBrush} disabled={brushHistoryIndex >= brushHistory.length - 1} className="flex-1 py-4 bg-slate-800 text-slate-300 rounded-2xl border border-slate-700 disabled:opacity-20">Redo</button>
+                  <button onClick={clearBrush} className="flex-1 py-4 bg-slate-800 text-slate-300 rounded-2xl border border-slate-700">Clear</button>
+                </div>
+              </div>
+            )}
+
+            {state.activeMode === EditMode.RAW_DEV && (
+              <div className="space-y-6">
+                {[
+                  { label: 'Exposure', value: `${rawParams.exposure > 0 ? '+' : ''}${rawParams.exposure.toFixed(2)} EV`, min: -5, max: 5, step: 0.1, key: 'exposure' },
+                  { label: 'Temperature', value: `${rawParams.temperature} K`, min: 2000, max: 12000, step: 100, key: 'temperature' },
+                  { label: 'Tint', value: `${rawParams.tint > 0 ? '+' : ''}${rawParams.tint}`, min: -150, max: 150, step: 1, key: 'tint' },
+                  { label: 'Highlights', value: `${rawParams.highlights > 0 ? '+' : ''}${rawParams.highlights}%`, min: -100, max: 100, step: 1, key: 'highlights' },
+                  { label: 'Shadows', value: `${rawParams.shadows > 0 ? '+' : ''}${rawParams.shadows}%`, min: -100, max: 100, step: 1, key: 'shadows' },
+                ].map(param => (
+                  <div key={param.key} className="space-y-3">
+                    <div className="flex justify-between items-end">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{param.label}</span>
+                      <span className="text-xs font-black text-amber-400">{param.value}</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min={param.min} 
+                      max={param.max} 
+                      step={param.step} 
+                      value={(rawParams as any)[param.key]} 
+                      onChange={(e) => setRawParams(prev => ({ ...prev, [param.key]: parseFloat(e.target.value) }))} 
+                      className="w-full accent-amber-500 h-1.5 bg-slate-950 rounded-full cursor-pointer appearance-none border border-slate-800" 
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {state.activeMode === EditMode.SOCIAL && (
+              <div className="grid grid-cols-3 gap-3">
+                {SOCIAL_PRESETS.map(social => (
+                  <button 
+                    key={social.id} 
+                    onClick={() => setActiveSocial(social.id)} 
+                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${activeSocial === social.id ? 'bg-fuchsia-600 border-fuchsia-400' : 'bg-slate-800 border-slate-700 opacity-60'}`}
+                  >
+                    <span className="text-xl">{social.icon}</span>
+                    <span className="text-[8px] font-black uppercase text-center">{social.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {state.activeMode === EditMode.POSTER && (
+              <div className="grid grid-cols-3 gap-3">
+                {POSTER_PRESETS.map(poster => (
+                  <button 
+                    key={poster.id} 
+                    onClick={() => setActivePoster(poster.id)} 
+                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${activePoster === poster.id ? 'bg-fuchsia-600 border-fuchsia-400' : 'bg-slate-800 border-slate-700 opacity-60'}`}
+                  >
+                    <span className="text-xl">{poster.icon}</span>
+                    <span className="text-[8px] font-black uppercase text-center">{poster.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {state.activeMode === EditMode.LOGO && (
+              <div className="grid grid-cols-3 gap-3">
+                {LOGO_PRESETS.map(logo => (
+                  <button 
+                    key={logo.id} 
+                    onClick={() => setActiveLogo(logo.id)} 
+                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${activeLogo === logo.id ? 'bg-fuchsia-600 border-fuchsia-400' : 'bg-slate-800 border-slate-700 opacity-60'}`}
+                  >
+                    <span className="text-xl">{logo.icon}</span>
+                    <span className="text-[8px] font-black uppercase text-center">{logo.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {state.activeMode === EditMode.COLLAGE && (
+              <div className="grid grid-cols-3 gap-3">
+                {COLLAGE_LAYOUTS.map(layout => (
+                  <button 
+                    key={layout.id} 
+                    onClick={() => setActiveCollageLayout(layout.id)} 
+                    className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${activeCollageLayout === layout.id ? 'bg-fuchsia-600 border-fuchsia-400' : 'bg-slate-800 border-slate-700 opacity-60'}`}
+                  >
+                    <span className="text-xl">{layout.icon}</span>
+                    <span className="text-[8px] font-black uppercase text-center">{layout.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {state.activeMode !== EditMode.COLLAGE && (
+              <div className="space-y-4 pt-4 border-t border-slate-800">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Instruction Prompt</label>
+                <textarea 
+                  value={prompt} 
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Describe your vision..."
+                  className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl px-5 py-4 text-xs focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-inner"
+                  rows={3}
+                />
+              </div>
+            )}
+
+            <button 
+              onClick={() => { handleAction(); setShowMobileControls(false); }}
+              disabled={state.isProcessing}
+              className="w-full py-5 bg-fuchsia-600 text-white font-black uppercase text-xs tracking-[0.2em] rounded-2xl shadow-2xl shadow-fuchsia-600/20 active:scale-95 flex items-center justify-center gap-3"
+            >
+              {state.isProcessing ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <span>{state.activeMode === EditMode.REMOVE ? 'Remove' : 'Apply Transformation'}</span>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                </>
+              )}
+            </button>
           </div>
         </MobileBottomSheet>
 
@@ -1655,7 +2026,7 @@ const App: React.FC = () => {
             ].map(mode => (
               <button 
                 key={mode.id} 
-                onClick={() => { handleModeSwitch(mode.id as EditMode); setShowMobileSuite(false); }}
+                onClick={() => { handleModeSwitch(mode.id as EditMode); setShowMobileSuite(false); setShowMobileControls(true); }}
                 className={`flex flex-col items-center gap-3 p-6 rounded-3xl border-2 transition-all active:scale-95 ${state.activeMode === mode.id ? 'bg-fuchsia-600/10 border-fuchsia-500 text-white' : 'bg-slate-800/40 border-slate-800 text-slate-400'}`}
               >
                 <span className="text-3xl">{mode.icon}</span>
@@ -1667,17 +2038,23 @@ const App: React.FC = () => {
 
         <MobileBottomSheet isOpen={showMobileFilters} onClose={() => setShowMobileFilters(false)} title="Creative Looks Library">
           <div className="space-y-6">
-            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar no-scrollbar">
-              {FILTER_CATEGORIES.map(cat => (
-                <button 
-                  key={cat.id}
-                  onClick={() => setFilterCategory(cat.id)}
-                  className={`flex items-center gap-2 px-5 py-3 rounded-2xl border transition-all whitespace-nowrap ${filterCategory === cat.id ? 'bg-fuchsia-600 border-fuchsia-400 text-white shadow-lg shadow-fuchsia-600/20' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
-                >
-                  <span className="text-sm">{cat.icon}</span>
-                  <span className="text-[10px] font-black uppercase tracking-widest">{cat.label}</span>
-                </button>
-              ))}
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar no-scrollbar flex-1">
+                {FILTER_CATEGORIES.map(cat => (
+                  <button 
+                    key={cat.id}
+                    onClick={() => setFilterCategory(cat.id)}
+                    className={`flex items-center gap-2 px-5 py-3 rounded-2xl border transition-all whitespace-nowrap ${filterCategory === cat.id ? 'bg-fuchsia-600 border-fuchsia-400 text-white shadow-lg shadow-fuchsia-600/20' : 'bg-slate-800 border-slate-700 text-slate-400'}`}
+                  >
+                    <span className="text-sm">{cat.icon}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">{cat.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1 ml-4 border-l border-slate-800 pl-4">
+                <button onClick={undo} disabled={state.historyIndex >= state.history.length - 1} className="w-10 h-10 flex items-center justify-center bg-slate-800 rounded-xl text-slate-400 hover:text-white disabled:opacity-20 transition-all active:scale-90"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg></button>
+                <button onClick={redo} disabled={state.historyIndex === 0} className="w-10 h-10 flex items-center justify-center bg-slate-800 rounded-xl text-slate-400 hover:text-white disabled:opacity-20 transition-all active:scale-90"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" /></svg></button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

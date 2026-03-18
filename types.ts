@@ -23,6 +23,10 @@ export interface Layer {
   rawParams?: RawDevelopmentParams; // Parameters for the Creative RAW Developer
   blur?: number; // Blur intensity (0-100)
   cssFilter?: string; // Non-destructive CSS filter
+  x?: number;
+  y?: number;
+  scale?: number;
+  rotation?: number;
 }
 
 export interface LayerGroup {
@@ -55,7 +59,8 @@ export enum EditMode {
   LAYERS = 'LAYERS',
   COLLAGE = 'COLLAGE',
   POSTER = 'POSTER',
-  LOGO = 'LOGO'
+  LOGO = 'LOGO',
+  TRANSFORM = 'TRANSFORM'
 }
 
 export type TargetResolution = '1K' | '2K' | '4K';

@@ -114,11 +114,210 @@ const Logo: React.FC<{ className?: string, condensed?: boolean }> = ({ className
           <span className="text-xl font-black tracking-tighter leading-none">Prot0</span>
           <span className="text-[10px] font-bold uppercase tracking-widest text-fuchsia-400">Creative</span>
         </div>
-        <div className="text-xs font-light text-slate-400">by 939Pro Studio</div>
+        <div className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500 mt-0.5">939PRO APPS</div>
       </div>
     )}
   </div>
 );
+
+const CropOverlay: React.FC<{ 
+  rect: { x: number, y: number, width: number, height: number }, 
+  onChange: (rect: { x: number, y: number, width: number, height: number }) => void,
+  imageRef: React.RefObject<HTMLImageElement>
+}> = ({ rect, onChange, imageRef }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragType, setDragType] = useState<'move' | 'nw' | 'ne' | 'sw' | 'se' | null>(null);
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  const [startRect, setStartRect] = useState(rect);
+
+  const handleStart = (clientX: number, clientY: number, type: 'move' | 'nw' | 'ne' | 'sw' | 'se') => {
+    setIsDragging(true);
+    setDragType(type);
+    setStartPos({ x: clientX, y: clientY });
+    setStartRect(rect);
+  };
+
+  useEffect(() => {
+    const handleMove = (clientX: number, clientY: number) => {
+      if (!isDragging || !imageRef.current) return;
+      const bounds = imageRef.current.getBoundingClientRect();
+      const dx = ((clientX - startPos.x) / bounds.width) * 100;
+      const dy = ((clientY - startPos.y) / bounds.height) * 100;
+
+      let newRect = { ...startRect };
+      if (dragType === 'move') {
+        newRect.x = Math.max(0, Math.min(100 - startRect.width, startRect.x + dx));
+        newRect.y = Math.max(0, Math.min(100 - startRect.height, startRect.y + dy));
+      } else if (dragType === 'nw') {
+        newRect.x = Math.max(0, Math.min(startRect.x + startRect.width - 5, startRect.x + dx));
+        newRect.y = Math.max(0, Math.min(startRect.y + startRect.height - 5, startRect.y + dy));
+        newRect.width = startRect.width - (newRect.x - startRect.x);
+        newRect.height = startRect.height - (newRect.y - startRect.y);
+      } else if (dragType === 'ne') {
+        newRect.y = Math.max(0, Math.min(startRect.y + startRect.height - 5, startRect.y + dy));
+        newRect.width = Math.max(5, Math.min(100 - startRect.x, startRect.width + dx));
+        newRect.height = startRect.height - (newRect.y - startRect.y);
+      } else if (dragType === 'sw') {
+        newRect.x = Math.max(0, Math.min(startRect.x + startRect.width - 5, startRect.x + dx));
+        newRect.width = startRect.width - (newRect.x - startRect.x);
+        newRect.height = Math.max(5, Math.min(100 - startRect.y, startRect.height + dy));
+      } else if (dragType === 'se') {
+        newRect.width = Math.max(5, Math.min(100 - startRect.x, startRect.width + dx));
+        newRect.height = Math.max(5, Math.min(100 - startRect.y, startRect.height + dy));
+      }
+      onChange(newRect);
+    };
+
+    const onMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => handleMove(e.touches[0].clientX, e.touches[0].clientY);
+    const onEnd = () => setIsDragging(false);
+
+    if (isDragging) {
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onEnd);
+      window.addEventListener('touchmove', onTouchMove);
+      window.addEventListener('touchend', onEnd);
+    }
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+  }, [isDragging, dragType, startPos, startRect, onChange, imageRef]);
+
+  return (
+    <div 
+      className="absolute border-2 border-fuchsia-500 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] cursor-move z-50"
+      style={{ left: `${rect.x}%`, top: `${rect.y}%`, width: `${rect.width}%`, height: `${rect.height}%` }}
+      onMouseDown={(e) => { e.stopPropagation(); handleStart(e.clientX, e.clientY, 'move'); }}
+      onTouchStart={(e) => { e.stopPropagation(); handleStart(e.touches[0].clientX, e.touches[0].clientY, 'move'); }}
+    >
+      {/* Rule of Thirds */}
+      <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-30">
+        <div className="border-r border-b border-white/50" />
+        <div className="border-r border-b border-white/50" />
+        <div className="border-b border-white/50" />
+        <div className="border-r border-b border-white/50" />
+        <div className="border-r border-b border-white/50" />
+        <div className="border-b border-white/50" />
+        <div className="border-r border-white/50" />
+        <div className="border-r border-white/50" />
+        <div />
+      </div>
+
+      {/* Handles */}
+      {[
+        { type: 'nw', class: '-top-2 -left-2 cursor-nw-resize' },
+        { type: 'ne', class: '-top-2 -right-2 cursor-ne-resize' },
+        { type: 'sw', class: '-bottom-2 -left-2 cursor-sw-resize' },
+        { type: 'se', class: '-bottom-2 -right-2 cursor-se-resize' },
+      ].map(h => (
+        <div 
+          key={h.type}
+          className={`absolute w-5 h-5 bg-white border-2 border-fuchsia-500 rounded-full shadow-lg transition-transform hover:scale-125 ${h.class}`}
+          onMouseDown={(e) => { e.stopPropagation(); handleStart(e.clientX, e.clientY, h.type as any); }}
+          onTouchStart={(e) => { e.stopPropagation(); handleStart(e.touches[0].clientX, e.touches[0].clientY, h.type as any); }}
+        />
+      ))}
+    </div>
+  );
+};
+
+const TransformOverlay: React.FC<{
+  layer: Layer,
+  onChange: (updates: Partial<Layer>) => void,
+  imageRef: React.RefObject<HTMLImageElement>
+}> = ({ layer, onChange, imageRef }) => {
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragType, setDragType] = useState<'move' | 'scale' | 'rotate' | null>(null);
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+  const [startLayer, setStartLayer] = useState(layer);
+
+  const handleStart = (clientX: number, clientY: number, type: 'move' | 'scale' | 'rotate') => {
+    setIsDragging(true);
+    setDragType(type);
+    setStartPos({ x: clientX, y: clientY });
+    setStartLayer(layer);
+  };
+
+  useEffect(() => {
+    const handleMove = (clientX: number, clientY: number) => {
+      if (!isDragging || !imageRef.current) return;
+      const dx = clientX - startPos.x;
+      const dy = clientY - startPos.y;
+
+      if (dragType === 'move') {
+        onChange({
+          x: (startLayer.x || 0) + dx,
+          y: (startLayer.y || 0) + dy
+        });
+      } else if (dragType === 'scale') {
+        const scaleChange = dx / 100;
+        onChange({
+          scale: Math.max(0.1, (startLayer.scale || 1) + scaleChange)
+        });
+      } else if (dragType === 'rotate') {
+        const rotationChange = dx;
+        onChange({
+          rotation: (startLayer.rotation || 0) + rotationChange
+        });
+      }
+    };
+
+    const onMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY);
+    const onTouchMove = (e: TouchEvent) => handleMove(e.touches[0].clientX, e.touches[0].clientY);
+    const onEnd = () => setIsDragging(false);
+
+    if (isDragging) {
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onEnd);
+      window.addEventListener('touchmove', onTouchMove);
+      window.addEventListener('touchend', onEnd);
+    }
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+  }, [isDragging, dragType, startPos, startLayer, onChange, imageRef]);
+
+  return (
+    <div 
+      className="absolute border-2 border-dashed border-fuchsia-500/50 z-50 pointer-events-none"
+      style={{ 
+        width: '100%', 
+        height: '100%',
+        transform: `translate(${layer.x || 0}px, ${layer.y || 0}px) scale(${layer.scale || 1}) rotate(${layer.rotation || 0}deg)`
+      }}
+    >
+      <div 
+        className="absolute inset-0 cursor-move pointer-events-auto"
+        onMouseDown={(e) => { e.stopPropagation(); handleStart(e.clientX, e.clientY, 'move'); }}
+        onTouchStart={(e) => { e.stopPropagation(); handleStart(e.touches[0].clientX, e.touches[0].clientY, 'move'); }}
+      />
+      
+      {/* Scale Handle */}
+      <div 
+        className="absolute -bottom-3 -right-3 w-8 h-8 bg-white border-2 border-fuchsia-500 rounded-full shadow-lg flex items-center justify-center cursor-se-resize pointer-events-auto transition-transform hover:scale-110"
+        onMouseDown={(e) => { e.stopPropagation(); handleStart(e.clientX, e.clientY, 'scale'); }}
+        onTouchStart={(e) => { e.stopPropagation(); handleStart(e.touches[0].clientX, e.touches[0].clientY, 'scale'); }}
+      >
+        <span className="text-[10px]">↔️</span>
+      </div>
+
+      {/* Rotate Handle */}
+      <div 
+        className="absolute -top-10 left-1/2 -translate-x-1/2 w-8 h-8 bg-white border-2 border-fuchsia-500 rounded-full shadow-lg flex items-center justify-center cursor-alias pointer-events-auto transition-transform hover:scale-110"
+        onMouseDown={(e) => { e.stopPropagation(); handleStart(e.clientX, e.clientY, 'rotate'); }}
+        onTouchStart={(e) => { e.stopPropagation(); handleStart(e.touches[0].clientX, e.touches[0].clientY, 'rotate'); }}
+      >
+        <span className="text-[10px]">🔄</span>
+      </div>
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>({
@@ -163,6 +362,32 @@ const App: React.FC = () => {
   const [activeLogo, setActiveLogo] = useState<string | null>(null);
   const [activeCollageLayout, setActiveCollageLayout] = useState<string>('grid');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [cropRect, setCropRect] = useState({ x: 10, y: 10, width: 80, height: 80 });
+  const [cropBounds, setCropBounds] = useState({ width: 0, height: 0, left: 0, top: 0 });
+
+  useEffect(() => {
+    const update = () => {
+      if ((state.activeMode === EditMode.CROP || state.activeMode === EditMode.TRANSFORM) && imageRef.current) {
+        const rect = imageRef.current.getBoundingClientRect();
+        const parentRect = imageRef.current.parentElement?.getBoundingClientRect();
+        if (rect && parentRect) {
+          setCropBounds({
+            width: rect.width,
+            height: rect.height,
+            left: rect.left - parentRect.left,
+            top: rect.top - parentRect.top
+          });
+        }
+      }
+    };
+    update();
+    window.addEventListener('resize', update);
+    const timer = setInterval(update, 500);
+    return () => {
+      window.removeEventListener('resize', update);
+      clearInterval(timer);
+    };
+  }, [state.activeMode, state.activeLayerId]);
   
   // Drag and Drop State
   const [draggedLayerId, setDraggedLayerId] = useState<string | null>(null);
@@ -354,11 +579,15 @@ const App: React.FC = () => {
           name: file.name, 
           blendMode: 'normal',
           isRaw: isRaw,
-          rawParams: isRaw ? { exposure: 0, temperature: 5600, tint: 0, highlights: 0, shadows: 0 } : undefined
+          rawParams: isRaw ? { exposure: 0, temperature: 5600, tint: 0, highlights: 0, shadows: 0 } : undefined,
+          x: 0,
+          y: 0,
+          scale: 1,
+          rotation: 0
         };
         const newLayers = [newLayer, ...state.layers];
         addToHistory(newLayers, newLayer.id, isRaw ? 'Import RAW Negative' : 'Import Layer');
-        setState(prev => ({ ...prev, activeMode: isRaw ? EditMode.RAW_DEV : EditMode.EDIT }));
+        setState(prev => ({ ...prev, activeMode: isRaw ? EditMode.RAW_DEV : EditMode.TRANSFORM }));
       };
       reader.readAsDataURL(file);
     }
@@ -377,8 +606,9 @@ const App: React.FC = () => {
     const isLogo = state.activeMode === EditMode.LOGO;
     const isCollage = state.activeMode === EditMode.COLLAGE;
     const isCrop = state.activeMode === EditMode.CROP;
+    const isTransform = state.activeMode === EditMode.TRANSFORM;
 
-    if (!prompt.trim() && !isBackgroundRemoval && !isEnhance && !isRemoval && !isColorGrading && !isBlur && !isRawDev && !isStyleTransfer && !isSocial && !isPoster && !isLogo && !isCollage && !isCrop && state.activeMode !== EditMode.GENERATE) { 
+    if (!prompt.trim() && !isBackgroundRemoval && !isEnhance && !isRemoval && !isColorGrading && !isBlur && !isRawDev && !isStyleTransfer && !isSocial && !isPoster && !isLogo && !isCollage && !isCrop && !isTransform && state.activeMode !== EditMode.GENERATE) { 
       handleError("Please describe a transformation or select a tool."); return; 
     }
 
@@ -438,21 +668,24 @@ const App: React.FC = () => {
           if (!social) { handleError("Select a platform."); return; }
           resultUrl = await resizeImageLocally(currentActiveLayer.url, social.aspectRatio);
         } else if (isCrop) {
-          // Simple center crop for now
           const img = imageRef.current;
           if (img) {
             const w = img.naturalWidth;
             const h = img.naturalHeight;
-            const size = Math.min(w, h);
             resultUrl = await cropImageLocally(currentActiveLayer.url, {
-              x: (w - size) / 2,
-              y: (h - size) / 2,
-              width: size,
-              height: size
+              x: (cropRect.x / 100) * w,
+              y: (cropRect.y / 100) * h,
+              width: (cropRect.width / 100) * w,
+              height: (cropRect.height / 100) * h,
             });
           } else {
             resultUrl = currentActiveLayer.url;
           }
+        } else if (isTransform) {
+          // Locking in placement
+          addToHistory(state.layers, state.activeLayerId!, 'Lock Placement');
+          setState(prev => ({ ...prev, activeMode: EditMode.EDIT }));
+          return;
         } else if (isPoster || isLogo) {
           const preset = isPoster 
             ? POSTER_PRESETS.find(p => p.id === activePoster)
@@ -833,13 +1066,29 @@ const App: React.FC = () => {
     setDragOverLayerId(null);
   };
 
+  const moveLayer = (layerId: string, direction: 'up' | 'down' | 'top' | 'bottom') => {
+    const index = state.layers.findIndex(l => l.id === layerId);
+    if (index === -1) return;
+    const newLayers = [...state.layers];
+    if (direction === 'up' && index > 0) {
+      [newLayers[index], newLayers[index - 1]] = [newLayers[index - 1], newLayers[index]];
+    } else if (direction === 'down' && index < newLayers.length - 1) {
+      [newLayers[index], newLayers[index + 1]] = [newLayers[index + 1], newLayers[index]];
+    } else if (direction === 'top') {
+      const [item] = newLayers.splice(index, 1);
+      newLayers.unshift(item);
+    } else if (direction === 'bottom') {
+      const [item] = newLayers.splice(index, 1);
+      newLayers.push(item);
+    }
+    addToHistory(newLayers, layerId, `Reorder Layer`);
+  };
+
   const LayerItem: React.FC<{ layer: Layer }> = ({ layer }) => {
     const isSelected = selectedLayerIds.includes(layer.id);
     const isActive = state.activeLayerId === layer.id;
     const isDragging = draggedLayerId === layer.id;
     const isDragOver = dragOverLayerId === layer.id;
-    const blendModeShort = BLEND_MODES.find(m => m.value === layer.blendMode)?.short || 'NRM';
-    const isModified = layer.url !== layer.originalUrl;
     const inSelectionMode = state.activeMode === EditMode.COLLAGE;
 
     return (
@@ -856,72 +1105,51 @@ const App: React.FC = () => {
              setState(prev => ({ ...prev, activeLayerId: layer.id })); 
           }
         }}
-        className={`p-3 md:p-3.5 rounded-2xl border transition-all cursor-grab active:cursor-grabbing group/item relative ${isActive && !inSelectionMode ? 'bg-fuchsia-600/20 border-fuchsia-500/50 shadow-lg' : isSelected ? 'bg-fuchsia-500/10 border-fuchsia-500 shadow-md ring-1 ring-fuchsia-500/50' : 'bg-slate-800/40 border-slate-800 hover:border-slate-700'} ${isDragging ? 'opacity-40' : ''} ${isDragOver ? 'border-t-2 border-t-fuchsia-500' : ''}`}
+        className={`p-2 rounded-xl border transition-all cursor-grab active:cursor-grabbing group/item relative ${isActive && !inSelectionMode ? 'bg-fuchsia-600/20 border-fuchsia-500/50 shadow-lg' : isSelected ? 'bg-fuchsia-500/10 border-fuchsia-500 shadow-md ring-1 ring-fuchsia-500/50' : 'bg-slate-800/40 border-slate-800 hover:border-slate-700'} ${isDragging ? 'opacity-40' : ''} ${isDragOver ? 'border-t-2 border-t-fuchsia-500' : ''}`}
       >
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className={`absolute -left-2 -top-2 z-20 w-5 h-5 rounded-full flex items-center justify-center transition-all ${isSelected ? 'bg-fuchsia-500 scale-100' : 'bg-slate-700/50 opacity-0 group-hover/item:opacity-100 scale-75'}`}>
-               {isSelected && <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" /></svg>}
-            </div>
-            <div className={`w-12 h-12 rounded-lg bg-slate-900 overflow-hidden border transition-colors flex-shrink-0 relative shadow-inner ${isSelected ? 'border-fuchsia-500' : 'border-slate-700'}`}>
-              <img src={isComparing && isActive ? layer.originalUrl : layer.url} className="w-full h-full object-cover" />
-              {layer.blendMode !== 'normal' && (
-                <div className="absolute top-0 right-0 bg-fuchsia-600 px-1 py-0.5 rounded-bl-md shadow-md">
-                   <span className="text-[7px] font-black text-white leading-none">{blendModeShort}</span>
-                </div>
-              )}
+          <div className="w-10 h-10 rounded-lg bg-slate-900 overflow-hidden border border-slate-700 flex-shrink-0 relative shadow-inner">
+            <img src={isComparing && isActive ? layer.originalUrl : layer.url} className="w-full h-full object-cover" />
+            {!layer.isVisible && <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center text-[10px]">🕶</div>}
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-bold truncate text-slate-100 leading-tight">{layer.name}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <button 
+                onClick={(e) => { e.stopPropagation(); moveLayer(layer.id, 'up'); }}
+                disabled={state.layers.indexOf(layer) === 0}
+                className="text-[10px] text-slate-500 hover:text-fuchsia-400 disabled:opacity-20"
+                title="Move Up"
+              >
+                ▲
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); moveLayer(layer.id, 'down'); }}
+                disabled={state.layers.indexOf(layer) === state.layers.length - 1}
+                className="text-[10px] text-slate-500 hover:text-fuchsia-400 disabled:opacity-20"
+                title="Move Down"
+              >
+                ▼
+              </button>
+              <div className="w-px h-2 bg-slate-700 mx-1" />
+              <button 
+                onClick={(e) => { e.stopPropagation(); setState(prev => ({ ...prev, activeMode: EditMode.TRANSFORM, activeLayerId: layer.id })); }}
+                className={`text-[10px] hover:text-fuchsia-400 transition-colors ${state.activeMode === EditMode.TRANSFORM && isActive ? 'text-fuchsia-400' : 'text-slate-500'}`}
+                title="Transform & Order"
+              >
+                🎯 Position
+              </button>
             </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1.5">
-              <div className="flex items-center gap-2 min-w-0">
-                <p className="text-[11px] font-bold truncate text-slate-100">{layer.name}</p>
-                {layer.isRaw && (
-                  <span className="text-[6px] font-black bg-amber-500 text-black px-1.5 py-0.5 rounded-full uppercase tracking-widest">RAW</span>
-                )}
-              </div>
-              <div className="flex items-center gap-1">
-                {isModified && (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); resetLayerToOriginal(layer.id); }} 
-                    className="p-1 text-slate-500 hover:text-red-400 transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                  </button>
-                )}
-                <select 
-                  value={layer.blendMode} 
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={(e) => { e.stopPropagation(); updateSelectedLayer({ blendMode: e.target.value as BlendMode }); }}
-                  className="bg-transparent text-[9px] uppercase font-black text-slate-500 hover:text-fuchsia-400 focus:outline-none cursor-pointer text-right min-w-[50px]"
-                >
-                  {BLEND_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                </select>
-              </div>
-            </div>
-            {!inSelectionMode && (
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); updateSelectedLayer({ isVisible: !layer.isVisible }); }}
-                  className={`text-sm p-1.5 rounded-lg hover:bg-slate-700 transition-colors ${layer.isVisible ? 'text-fuchsia-400' : 'text-slate-600'}`}
-                >
-                  {layer.isVisible ? '👁' : '🕶'}
-                </button>
-                <input 
-                  type="range" min="0" max="100" value={layer.opacity} 
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={(e) => { e.stopPropagation(); updateSelectedLayer({ opacity: parseInt(e.target.value) }); }}
-                  className="w-full accent-fuchsia-500 h-1.5 bg-slate-700 rounded-full cursor-pointer"
-                />
-                <span className="text-[9px] font-black text-slate-500 min-w-[24px] text-right">{layer.opacity}%</span>
-              </div>
-            )}
-            {inSelectionMode && (
-              <div className="flex items-center justify-between">
-                <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">{isSelected ? 'Active Selection' : 'Ready for Creative Mix'}</span>
-                {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-500 animate-pulse" />}
-              </div>
-            )}
+
+          <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+             <button 
+                onClick={(e) => { e.stopPropagation(); updateSelectedLayer({ isVisible: !layer.isVisible }); }}
+                className={`p-1.5 rounded-lg hover:bg-slate-700 transition-colors ${layer.isVisible ? 'text-slate-400' : 'text-slate-600'}`}
+              >
+                {layer.isVisible ? '👁' : '🕶'}
+              </button>
           </div>
         </div>
       </div>
@@ -1211,6 +1439,14 @@ const App: React.FC = () => {
 
         {/* Viewport Canvas Area */}
         <div ref={workspaceRef} className="flex-1 flex items-center justify-center p-6 md:p-10 relative overflow-hidden bg-[radial-gradient(#1e293b_1.5px,transparent_1.5px)] [background-size:24px_24px]">
+          {/* 939PRO Watermark */}
+          <div className="absolute top-8 right-8 z-0 pointer-events-none select-none opacity-20">
+            <span className="text-4xl font-black tracking-[0.5em] text-slate-800 uppercase">939PRO</span>
+          </div>
+          <div className="absolute bottom-8 left-8 z-0 pointer-events-none select-none opacity-20">
+            <span className="text-4xl font-black tracking-[0.5em] text-slate-800 uppercase">939PRO</span>
+          </div>
+          
           {state.error && <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-5 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-2xl animate-in slide-in-from-top-4">{state.error}</div>}
           
           <div className="relative w-full h-full flex items-center justify-center pointer-events-none z-10">
@@ -1237,10 +1473,11 @@ const App: React.FC = () => {
                     key={layer.id}
                     ref={layer.id === state.activeLayerId ? imageRef : undefined}
                     src={isComparing && layer.id === state.activeLayerId ? layer.originalUrl : layer.url} 
-                    className={`max-h-full max-w-full object-contain transition-all duration-300 ${!layer.isVisible && state.activeMode !== EditMode.COLLAGE ? 'opacity-0 pointer-events-none' : ''} ${layer.id === state.activeLayerId && state.activeMode !== EditMode.COLLAGE ? 'relative z-10 shadow-2xl scale-[1.02]' : 'z-0 absolute inset-0 m-auto opacity-50'} ${state.activeMode === EditMode.COLLAGE && selectedLayerIds.includes(layer.id) ? 'border-4 border-fuchsia-500 rounded-lg opacity-100 scale-95 relative' : state.activeMode === EditMode.COLLAGE ? 'hidden' : ''}`} 
+                    className={`max-h-full max-w-full object-contain ${state.activeMode === EditMode.TRANSFORM && layer.id === state.activeLayerId ? '' : 'transition-all duration-300'} ${!layer.isVisible && state.activeMode !== EditMode.COLLAGE ? 'opacity-0 pointer-events-none' : ''} ${layer.id === state.activeLayerId && state.activeMode !== EditMode.COLLAGE ? 'relative z-10 shadow-2xl' : 'z-0 absolute inset-0 m-auto opacity-50'} ${state.activeMode === EditMode.COLLAGE && selectedLayerIds.includes(layer.id) ? 'border-4 border-fuchsia-500 rounded-lg opacity-100 scale-95 relative' : state.activeMode === EditMode.COLLAGE ? 'hidden' : ''}`} 
                     style={{
                       opacity: state.activeMode === EditMode.COLLAGE ? 1 : layer.isVisible ? layer.opacity / 100 : 0,
                       mixBlendMode: state.activeMode === EditMode.COLLAGE ? 'normal' : layer.blendMode,
+                      transform: `translate(${layer.x || 0}px, ${layer.y || 0}px) scale(${layer.scale || 1}) rotate(${layer.rotation || 0}deg)`,
                       filter: (() => {
                         if (layer.id !== state.activeLayerId) return layer.cssFilter || 'none';
                         let currentFilters = layer.cssFilter || '';
@@ -1270,6 +1507,34 @@ const App: React.FC = () => {
                     className="absolute inset-0 m-auto z-20 cursor-crosshair"
                     style={{ pointerEvents: 'auto' }}
                   />
+                )}
+
+                {state.activeMode === EditMode.CROP && currentActiveLayer && cropBounds.width > 0 && (
+                  <div 
+                    className="absolute z-50 pointer-events-auto"
+                    style={{ 
+                      width: cropBounds.width, 
+                      height: cropBounds.height, 
+                      left: cropBounds.left, 
+                      top: cropBounds.top 
+                    }}
+                  >
+                    <CropOverlay rect={cropRect} onChange={setCropRect} imageRef={imageRef} />
+                  </div>
+                )}
+
+                {state.activeMode === EditMode.TRANSFORM && currentActiveLayer && cropBounds.width > 0 && (
+                  <div 
+                    className="absolute z-50 pointer-events-auto"
+                    style={{ 
+                      width: cropBounds.width, 
+                      height: cropBounds.height, 
+                      left: cropBounds.left, 
+                      top: cropBounds.top 
+                    }}
+                  >
+                    <TransformOverlay layer={currentActiveLayer} onChange={updateSelectedLayer} imageRef={imageRef} />
+                  </div>
                 )}
 
                 {state.isProcessing && (
@@ -1339,13 +1604,92 @@ const App: React.FC = () => {
             </div>
           )}
 
+          {state.activeMode === EditMode.TRANSFORM && (
+            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-8 animate-in slide-in-from-bottom-8 shadow-2xl flex flex-col gap-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-5">
+                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-600/20 flex items-center justify-center text-2xl shadow-inner border border-fuchsia-500/20">🎯</div>
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Layer Positioning</h3>
+                    <p className="text-[10px] font-medium text-slate-500">Adjust stack order and canvas placement</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+                    <button 
+                      onClick={() => moveLayer(state.activeLayerId!, 'top')}
+                      className="px-3 py-1.5 text-[9px] font-black uppercase text-slate-400 hover:text-white transition-colors"
+                    >
+                      To Front
+                    </button>
+                    <button 
+                      onClick={() => moveLayer(state.activeLayerId!, 'bottom')}
+                      className="px-3 py-1.5 text-[9px] font-black uppercase text-slate-400 hover:text-white transition-colors border-l border-slate-700"
+                    >
+                      To Back
+                    </button>
+                  </div>
+                  <button 
+                    onClick={handleAction} 
+                    className="px-8 py-3 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-emerald-600/20 hover:bg-emerald-500 transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    <span>Lock Placement</span>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-6 pt-4 border-t border-white/5">
+                <div className="space-y-3">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Opacity</label>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="range" min="0" max="100" value={currentActiveLayer?.opacity || 100} 
+                      onChange={(e) => updateSelectedLayer({ opacity: parseInt(e.target.value) })}
+                      className="w-full accent-fuchsia-500 h-1.5 bg-slate-800 rounded-full cursor-pointer"
+                    />
+                    <span className="text-[10px] font-mono text-fuchsia-400 w-8">{currentActiveLayer?.opacity}%</span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Blend Mode</label>
+                  <select 
+                    value={currentActiveLayer?.blendMode} 
+                    onChange={(e) => updateSelectedLayer({ blendMode: e.target.value as BlendMode })}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-[10px] uppercase font-black text-slate-300 focus:outline-none focus:border-fuchsia-500"
+                  >
+                    {BLEND_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Quick Actions</label>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => updateSelectedLayer({ x: 0, y: 0, scale: 1, rotation: 0 })}
+                      className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl py-2 text-[9px] font-black uppercase text-slate-400 transition-colors"
+                    >
+                      Reset Transform
+                    </button>
+                    <button 
+                      onClick={() => resetLayerToOriginal(state.activeLayerId!)}
+                      className="flex-1 bg-red-900/20 hover:bg-red-900/40 border border-red-900/30 rounded-xl py-2 text-[9px] font-black uppercase text-red-400 transition-colors"
+                    >
+                      Reset Pixels
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {state.activeMode === EditMode.CROP && (
             <div className="max-w-2xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-10 animate-in slide-in-from-bottom-8 shadow-2xl flex items-center justify-between gap-8">
               <div className="flex items-center gap-5">
                 <div className="w-14 h-14 rounded-2xl bg-fuchsia-600/20 flex items-center justify-center text-3xl shadow-inner border border-fuchsia-500/20">✂️</div>
                 <div className="flex flex-col">
-                  <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Creative Crop</h3>
-                  <p className="text-[10px] font-medium text-slate-500">Smart center-square optimization for your subject</p>
+                  <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Creative Reframe</h3>
+                  <p className="text-[10px] font-medium text-slate-500">Drag the handles on the canvas to select your perfect crop area</p>
                 </div>
               </div>
               <button 

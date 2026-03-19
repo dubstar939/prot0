@@ -336,6 +336,7 @@ const App: React.FC = () => {
 
   const [prompt, setPrompt] = useState('');
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showLayers, setShowLayers] = useState(false);
   const [showMobileLayers, setShowMobileLayers] = useState(false);
   const [showMobileTools, setShowMobileTools] = useState(false);
   const [showMobileSuite, setShowMobileSuite] = useState(false);
@@ -1066,6 +1067,12 @@ const App: React.FC = () => {
     setDragOverLayerId(null);
   };
 
+  const deleteLayer = (id: string) => {
+    const newLayers = state.layers.filter(l => l.id !== id);
+    const nextActiveId = newLayers.length > 0 ? newLayers[0].id : null;
+    addToHistory(newLayers, nextActiveId, 'Delete Layer');
+  };
+
   const moveLayer = (layerId: string, direction: 'up' | 'down' | 'top' | 'bottom') => {
     const index = state.layers.findIndex(l => l.id === layerId);
     if (index === -1) return;
@@ -1105,50 +1112,48 @@ const App: React.FC = () => {
              setState(prev => ({ ...prev, activeLayerId: layer.id })); 
           }
         }}
-        className={`p-2 rounded-xl border transition-all cursor-grab active:cursor-grabbing group/item relative ${isActive && !inSelectionMode ? 'bg-fuchsia-600/20 border-fuchsia-500/50 shadow-lg' : isSelected ? 'bg-fuchsia-500/10 border-fuchsia-500 shadow-md ring-1 ring-fuchsia-500/50' : 'bg-slate-800/40 border-slate-800 hover:border-slate-700'} ${isDragging ? 'opacity-40' : ''} ${isDragOver ? 'border-t-2 border-t-fuchsia-500' : ''}`}
+        className={`p-3 rounded-2xl border transition-all cursor-grab active:cursor-grabbing group/item relative ${isActive && !inSelectionMode ? 'bg-fuchsia-600/20 border-fuchsia-500/50 shadow-lg' : isSelected ? 'bg-fuchsia-500/10 border-fuchsia-500 shadow-md ring-1 ring-fuchsia-500/50' : 'bg-slate-800/40 border-slate-800 hover:border-slate-700'} ${isDragging ? 'opacity-40' : ''} ${isDragOver ? 'border-t-2 border-t-fuchsia-500' : ''}`}
       >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-slate-900 overflow-hidden border border-slate-700 flex-shrink-0 relative shadow-inner">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-slate-900 overflow-hidden border border-slate-700 flex-shrink-0 relative shadow-inner">
             <img src={isComparing && isActive ? layer.originalUrl : layer.url} className="w-full h-full object-cover" />
             {!layer.isVisible && <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center text-[10px]">🕶</div>}
           </div>
           
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-bold truncate text-slate-100 leading-tight">{layer.name}</p>
-            <div className="flex items-center gap-2 mt-1">
+            <p className="text-xs font-black truncate text-slate-100 uppercase tracking-wider">{layer.name}</p>
+            <div className="flex items-center gap-3 mt-2">
               <button 
                 onClick={(e) => { e.stopPropagation(); moveLayer(layer.id, 'up'); }}
                 disabled={state.layers.indexOf(layer) === 0}
-                className="text-[10px] text-slate-500 hover:text-fuchsia-400 disabled:opacity-20"
-                title="Move Up"
+                className="text-xs text-slate-500 hover:text-fuchsia-400 disabled:opacity-20"
               >
                 ▲
               </button>
               <button 
                 onClick={(e) => { e.stopPropagation(); moveLayer(layer.id, 'down'); }}
                 disabled={state.layers.indexOf(layer) === state.layers.length - 1}
-                className="text-[10px] text-slate-500 hover:text-fuchsia-400 disabled:opacity-20"
-                title="Move Down"
+                className="text-xs text-slate-500 hover:text-fuchsia-400 disabled:opacity-20"
               >
                 ▼
               </button>
-              <div className="w-px h-2 bg-slate-700 mx-1" />
+              <div className="w-px h-3 bg-slate-700 mx-1" />
               <button 
                 onClick={(e) => { e.stopPropagation(); setState(prev => ({ ...prev, activeMode: EditMode.TRANSFORM, activeLayerId: layer.id })); }}
-                className={`text-[10px] hover:text-fuchsia-400 transition-colors ${state.activeMode === EditMode.TRANSFORM && isActive ? 'text-fuchsia-400' : 'text-slate-500'}`}
-                title="Transform & Order"
+                className={`text-[10px] font-black uppercase tracking-widest hover:text-fuchsia-400 transition-colors ${state.activeMode === EditMode.TRANSFORM && isActive ? 'text-fuchsia-400' : 'text-slate-500'}`}
               >
-                🎯 Position
+                Position
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
-             <button 
-                onClick={(e) => { e.stopPropagation(); updateSelectedLayer({ isVisible: !layer.isVisible }); }}
-                className={`p-1.5 rounded-lg hover:bg-slate-700 transition-colors ${layer.isVisible ? 'text-slate-400' : 'text-slate-600'}`}
+          <div className="flex items-center gap-2">
+              <button 
+                onClick={(e) => { e.stopPropagation(); deleteLayer(layer.id); }}
+                className="p-2 rounded-xl hover:bg-red-500/20 text-red-400 transition-colors"
+                title="Discard Image"
               >
-                {layer.isVisible ? '👁' : '🕶'}
+                🗑️
               </button>
           </div>
         </div>
@@ -1159,19 +1164,16 @@ const App: React.FC = () => {
   const LayerPanelContent = () => {
     return (
       <div className="flex flex-col h-full bg-slate-900/95 md:bg-slate-900 backdrop-blur-sm overflow-hidden">
-        <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
           <div className="flex flex-col gap-0.5">
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Creative Stack</h3>
-            <div className="flex gap-2">
-              <button onClick={() => toggleAllGroups(false)} className="text-[8px] font-black text-slate-600 hover:text-slate-400 uppercase tracking-widest">Expand All</button>
-              <button onClick={() => toggleAllGroups(true)} className="text-[8px] font-black text-slate-600 hover:text-slate-400 uppercase tracking-widest">Collapse</button>
-            </div>
+            <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Your Stack</h3>
+            <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Manage your layers</p>
           </div>
-          <div className="flex gap-1.5">
-             <button onClick={createGroup} className="p-2 rounded-xl hover:bg-slate-800 text-slate-500 hover:text-fuchsia-400 transition-colors border border-transparent hover:border-slate-700">
+          <div className="flex gap-2">
+             <button onClick={createGroup} className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-fuchsia-400 transition-all border border-slate-700">
                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
              </button>
-             <button onClick={mergeLayers} className="px-3 py-1.5 text-[10px] font-black text-fuchsia-400 uppercase border border-fuchsia-500/20 rounded-xl hover:bg-fuchsia-500/10 transition-all active:scale-95">Merge</button>
+             <button onClick={mergeLayers} className="px-4 py-2 text-[10px] font-black text-fuchsia-400 uppercase border border-fuchsia-500/20 rounded-xl hover:bg-fuchsia-500/10 transition-all active:scale-95">Flatten</button>
           </div>
         </div>
         
@@ -1240,19 +1242,16 @@ const App: React.FC = () => {
     if (!isOpen) return null;
     return (
       <div className="md:hidden fixed inset-0 z-[100] animate-in fade-in duration-300">
-        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={onClose} />
-        <div className="absolute inset-x-0 bottom-0 max-h-[85vh] bg-slate-900 rounded-t-[3rem] border-t border-white/10 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-500 ease-out-expo shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
-          <div className="w-full flex justify-center py-6 cursor-pointer" onClick={onClose}>
-            <div className="w-16 h-1.5 bg-slate-700 rounded-full opacity-40 hover:opacity-100 transition-opacity" />
+        <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
+        <div className="absolute inset-x-0 bottom-0 max-h-[80vh] bg-slate-900 rounded-t-[2.5rem] border-t border-white/5 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-400 ease-out shadow-2xl">
+          <div className="w-full flex justify-center py-4 cursor-pointer" onClick={onClose}>
+            <div className="w-12 h-1.5 bg-slate-800 rounded-full" />
           </div>
-          <div className="px-10 pb-6 border-b border-slate-800 flex items-center justify-between">
-            <div className="flex flex-col">
-              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-1">{title}</h4>
-              <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Creative Suite Hub</p>
-            </div>
-            <button onClick={onClose} className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">✕</button>
+          <div className="px-8 pb-4 border-b border-slate-800 flex items-center justify-between">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{title}</h4>
+            <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 hover:text-white transition-colors">✕</button>
           </div>
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-8 pb-32">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-6 pb-24">
             {children}
           </div>
         </div>
@@ -1261,15 +1260,14 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-full bg-slate-950 text-slate-100 overflow-hidden font-sans flex-col md:flex-row">
+    <div className="flex h-screen w-full bg-slate-950 text-slate-100 overflow-hidden font-sans flex-col md:flex-row fixed inset-0">
       
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-80 flex-shrink-0 border-r border-slate-800 bg-slate-900/50 flex-col h-full overflow-hidden shadow-2xl z-40">
+      <aside className={`hidden md:flex flex-shrink-0 border-r border-slate-800 bg-slate-900/50 flex-col h-full overflow-hidden shadow-2xl z-40 transition-all duration-300 ${showLayers ? 'w-80' : 'w-0 border-none'}`}>
         <div className="p-8"><Logo /></div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-2 space-y-8">
-          <nav className="space-y-6">
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-2 space-y-8 min-w-[20rem]">
+          <nav className="space-y-8">
             <section>
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">Toolbox</h3>
               <div className="grid grid-cols-1 gap-1">
                 {[
                   { id: EditMode.CROP, label: 'Crop Tool', icon: '✂️', desc: 'Optimize composition' },
@@ -1283,14 +1281,14 @@ const App: React.FC = () => {
                   <button 
                     key={mode.id} 
                     onClick={() => handleModeSwitch(mode.id as EditMode)} 
-                    className={`group flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-300 ${state.activeMode === mode.id ? 'bg-fuchsia-600 text-white shadow-xl shadow-fuchsia-600/20 scale-[1.02]' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
+                    className={`group flex items-center gap-4 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-300 ${state.activeMode === mode.id ? 'bg-fuchsia-600 text-white shadow-xl shadow-fuchsia-600/20 scale-[1.02]' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
                   >
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${state.activeMode === mode.id ? 'bg-white/20' : 'bg-slate-800 group-hover:bg-slate-700'}`}>
                       {mode.icon}
                     </div>
-                    <div className="flex flex-col items-start overflow-hidden">
-                      <span className="font-bold tracking-tight leading-none mb-1">{mode.label}</span>
-                      <span className={`text-[10px] truncate w-full ${state.activeMode === mode.id ? 'text-white/70' : 'text-slate-500'}`}>{mode.desc}</span>
+                    <div className="flex flex-col items-start overflow-hidden text-left">
+                      <span className="font-black uppercase tracking-wider text-[10px] leading-none mb-1">{mode.label}</span>
+                      <span className={`text-[9px] font-bold truncate w-full ${state.activeMode === mode.id ? 'text-white/70' : 'text-slate-500'}`}>{mode.desc}</span>
                     </div>
                   </button>
                 ))}
@@ -1298,7 +1296,6 @@ const App: React.FC = () => {
             </section>
 
             <section>
-              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">Creative Suite</h3>
               <div className="grid grid-cols-1 gap-1">
                 {[
                   { id: EditMode.GENERATE, label: 'Creative Create', icon: '✨', desc: 'Generate from text' },
@@ -1311,14 +1308,14 @@ const App: React.FC = () => {
                   <button 
                     key={mode.id} 
                     onClick={() => handleModeSwitch(mode.id as EditMode)} 
-                    className={`group flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-300 ${state.activeMode === mode.id ? 'bg-fuchsia-600 text-white shadow-xl shadow-fuchsia-600/20 scale-[1.02]' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
+                    className={`group flex items-center gap-4 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-300 ${state.activeMode === mode.id ? 'bg-fuchsia-600 text-white shadow-xl shadow-fuchsia-600/20 scale-[1.02]' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
                   >
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${state.activeMode === mode.id ? 'bg-white/20' : 'bg-slate-800 group-hover:bg-slate-700'}`}>
                       {mode.icon}
                     </div>
-                    <div className="flex flex-col items-start overflow-hidden">
-                      <span className="font-bold tracking-tight leading-none mb-1">{mode.label}</span>
-                      <span className={`text-[10px] truncate w-full ${state.activeMode === mode.id ? 'text-white/70' : 'text-slate-500'}`}>{mode.desc}</span>
+                    <div className="flex flex-col items-start overflow-hidden text-left">
+                      <span className="font-black uppercase tracking-wider text-[10px] leading-none mb-1">{mode.label}</span>
+                      <span className={`text-[9px] font-bold truncate w-full ${state.activeMode === mode.id ? 'text-white/70' : 'text-slate-500'}`}>{mode.desc}</span>
                     </div>
                   </button>
                 ))}
@@ -1327,12 +1324,8 @@ const App: React.FC = () => {
 
             <section className="flex-1 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-4 px-2">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Creative Looks</h3>
+                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Looks</h3>
                 <div className="flex gap-2 items-center">
-                  <div className="flex gap-1">
-                    <button onClick={undo} disabled={state.historyIndex >= state.history.length - 1} className="p-1 text-slate-400 hover:text-white disabled:opacity-20 transition-all active:scale-90" title="Undo Filter"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg></button>
-                    <button onClick={redo} disabled={state.historyIndex === 0} className="p-1 text-slate-400 hover:text-white disabled:opacity-20 transition-all active:scale-90" title="Redo Filter"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" /></svg></button>
-                  </div>
                   <div className="flex gap-1 bg-slate-900/50 p-1 rounded-lg border border-slate-800">
                     {FILTER_CATEGORIES.map(cat => (
                       <button 
@@ -1394,13 +1387,32 @@ const App: React.FC = () => {
         </div>
 
         {/* Header */}
-        <header className="h-16 border-b border-slate-800/50 flex items-center justify-between px-4 md:px-8 bg-slate-950/60 backdrop-blur-xl z-30">
+        <header className="h-16 border-b border-slate-800/50 flex items-center justify-between px-4 md:px-8 bg-slate-950/60 backdrop-blur-xl z-30 flex-shrink-0">
           <div className="flex items-center gap-3">
             <Logo condensed className="md:hidden" />
             <div className="flex items-center gap-1 pr-2 md:pr-4 border-r border-slate-800">
               <button onClick={undo} disabled={state.historyIndex >= state.history.length - 1} className="p-2 text-slate-400 hover:text-white disabled:opacity-20 transition-all active:scale-90"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg></button>
               <button onClick={redo} disabled={state.historyIndex === 0} className="p-2 text-slate-400 hover:text-white disabled:opacity-20 transition-all active:scale-90"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" /></svg></button>
             </div>
+            <button 
+              onClick={() => {
+                setShowLayers(!showLayers);
+                setShowMobileLayers(!showMobileLayers);
+              }}
+              className={`p-2.5 rounded-xl border transition-all flex items-center gap-2 ${showLayers ? 'bg-fuchsia-600 border-fuchsia-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'} ${state.layers.length <= 1 ? 'hidden' : ''}`}
+            >
+              <span className="text-lg">📚</span>
+              <span className="hidden md:inline text-xs font-bold uppercase tracking-widest">Stack</span>
+            </button>
+            {state.activeLayerId && (
+              <button 
+                onClick={() => deleteLayer(state.activeLayerId!)}
+                className="p-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl text-red-400 transition-all flex items-center justify-center"
+                title="Discard Image"
+              >
+                🗑️
+              </button>
+            )}
             {currentActiveLayer && currentActiveLayer.url !== currentActiveLayer.originalUrl && (
               <button 
                 onMouseDown={() => setIsComparing(true)}
@@ -1430,15 +1442,26 @@ const App: React.FC = () => {
                <span className="hidden md:inline">Help</span>
                <span className="text-lg">❓</span>
             </button>
-            <button onClick={() => setShowExportModal(true)} disabled={state.layers.length === 0} className="p-2.5 bg-fuchsia-600 rounded-xl text-xs font-black uppercase shadow-lg disabled:opacity-30 flex items-center gap-2">
-               <span className="hidden md:inline">Publish</span>
-               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
-            </button>
+            {state.activeMode ? (
+              <button 
+                onClick={handleAction} 
+                disabled={state.isProcessing}
+                className="p-2.5 bg-fuchsia-600 rounded-xl text-xs font-black uppercase shadow-lg disabled:opacity-30 flex items-center gap-2 animate-in slide-in-from-right-4"
+              >
+                 <span>Done</span>
+                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+              </button>
+            ) : (
+              <button onClick={() => setShowExportModal(true)} disabled={state.layers.length === 0} className="p-2.5 bg-fuchsia-600 rounded-xl text-xs font-black uppercase shadow-lg disabled:opacity-30 flex items-center gap-2">
+                 <span className="hidden md:inline">Publish</span>
+                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+              </button>
+            )}
           </div>
         </header>
 
         {/* Viewport Canvas Area */}
-        <div ref={workspaceRef} className="flex-1 flex items-center justify-center p-6 md:p-10 relative overflow-hidden bg-[radial-gradient(#1e293b_1.5px,transparent_1.5px)] [background-size:24px_24px]">
+        <div ref={workspaceRef} className="flex-1 flex items-center justify-center p-4 md:p-10 relative overflow-hidden bg-[radial-gradient(#1e293b_1.5px,transparent_1.5px)] [background-size:24px_24px]">
           {/* 939PRO Watermark */}
           <div className="absolute top-8 right-8 z-0 pointer-events-none select-none opacity-20">
             <span className="text-4xl font-black tracking-[0.5em] text-slate-800 uppercase">939PRO</span>
@@ -1605,79 +1628,46 @@ const App: React.FC = () => {
           )}
 
           {state.activeMode === EditMode.TRANSFORM && (
-            <div className="max-w-4xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] p-8 animate-in slide-in-from-bottom-8 shadow-2xl flex flex-col gap-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-5">
-                  <div className="w-12 h-12 rounded-2xl bg-fuchsia-600/20 flex items-center justify-center text-2xl shadow-inner border border-fuchsia-500/20">🎯</div>
-                  <div className="flex flex-col">
-                    <h3 className="text-sm font-black text-white uppercase tracking-[0.15em]">Layer Positioning</h3>
-                    <p className="text-[10px] font-medium text-slate-500">Adjust stack order and canvas placement</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
-                    <button 
-                      onClick={() => moveLayer(state.activeLayerId!, 'top')}
-                      className="px-3 py-1.5 text-[9px] font-black uppercase text-slate-400 hover:text-white transition-colors"
-                    >
-                      To Front
-                    </button>
-                    <button 
-                      onClick={() => moveLayer(state.activeLayerId!, 'bottom')}
-                      className="px-3 py-1.5 text-[9px] font-black uppercase text-slate-400 hover:text-white transition-colors border-l border-slate-700"
-                    >
-                      To Back
-                    </button>
-                  </div>
+            <div className="max-w-2xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2rem] p-6 animate-in slide-in-from-bottom-6 shadow-2xl flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className={`flex bg-slate-800 p-1 rounded-xl border border-slate-700 flex-shrink-0 ${state.layers.length <= 1 ? 'hidden' : ''}`}>
                   <button 
-                    onClick={handleAction} 
-                    className="px-8 py-3 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-xl shadow-xl shadow-emerald-600/20 hover:bg-emerald-500 transition-all active:scale-95 flex items-center gap-2"
+                    onClick={() => moveLayer(state.activeLayerId!, 'top')}
+                    className="px-4 py-2 text-[10px] font-black uppercase text-slate-400 hover:text-white transition-colors"
                   >
-                    <span>Lock Placement</span>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                    To Front
+                  </button>
+                  <button 
+                    onClick={() => moveLayer(state.activeLayerId!, 'bottom')}
+                    className="px-4 py-2 text-[10px] font-black uppercase text-slate-400 hover:text-white transition-colors border-l border-slate-700"
+                  >
+                    To Back
                   </button>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-3 gap-6 pt-4 border-t border-white/5">
-                <div className="space-y-3">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Opacity</label>
-                  <div className="flex items-center gap-3">
-                    <input 
-                      type="range" min="0" max="100" value={currentActiveLayer?.opacity || 100} 
-                      onChange={(e) => updateSelectedLayer({ opacity: parseInt(e.target.value) })}
-                      className="w-full accent-fuchsia-500 h-1.5 bg-slate-800 rounded-full cursor-pointer"
-                    />
-                    <span className="text-[10px] font-mono text-fuchsia-400 w-8">{currentActiveLayer?.opacity}%</span>
-                  </div>
+                <div className="flex-1 flex items-center gap-4 bg-slate-800/50 px-4 py-2 rounded-xl border border-slate-700/50">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Opacity</span>
+                  <input 
+                    type="range" min="0" max="100" value={currentActiveLayer?.opacity || 100} 
+                    onChange={(e) => updateSelectedLayer({ opacity: parseInt(e.target.value) })}
+                    className="flex-1 accent-fuchsia-500 h-1.5 bg-slate-900 rounded-full cursor-pointer"
+                  />
                 </div>
-                <div className="space-y-3">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Blend Mode</label>
-                  <select 
-                    value={currentActiveLayer?.blendMode} 
-                    onChange={(e) => updateSelectedLayer({ blendMode: e.target.value as BlendMode })}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-[10px] uppercase font-black text-slate-300 focus:outline-none focus:border-fuchsia-500"
+
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => deleteLayer(state.activeLayerId!)}
+                    className="w-10 h-10 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl text-red-400 transition-all flex items-center justify-center"
+                    title="Discard Image"
                   >
-                    {BLEND_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-3">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-500">Quick Actions</label>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => updateSelectedLayer({ x: 0, y: 0, scale: 1, rotation: 0 })}
-                      className="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl py-2 text-[9px] font-black uppercase text-slate-400 transition-colors"
-                    >
-                      Reset Transform
-                    </button>
-                    <button 
-                      onClick={() => resetLayerToOriginal(state.activeLayerId!)}
-                      className="flex-1 bg-red-900/20 hover:bg-red-900/40 border border-red-900/30 rounded-xl py-2 text-[9px] font-black uppercase text-red-400 transition-colors"
-                    >
-                      Reset Pixels
-                    </button>
-                  </div>
+                    🗑️
+                  </button>
+                  <button 
+                    onClick={handleAction} 
+                    className="h-10 px-6 bg-fuchsia-600 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-xl shadow-lg hover:bg-fuchsia-500 transition-all active:scale-95 flex items-center gap-2"
+                  >
+                    <span>Done</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -2100,7 +2090,7 @@ const App: React.FC = () => {
             { id: 'suite', icon: '✨', label: 'Suite', active: showMobileSuite, onClick: () => { closeMobilePanels(); setShowMobileSuite(true); } },
             { id: 'controls', icon: '⚙️', label: 'Edit', active: showMobileControls, onClick: () => { closeMobilePanels(); setShowMobileControls(true); }, show: state.activeMode !== null },
             { id: 'filters', icon: '🎨', label: 'Looks', active: showMobileFilters, onClick: () => { closeMobilePanels(); setShowMobileFilters(true); } },
-            { id: 'layers', icon: '📑', label: 'Stack', active: showMobileLayers, onClick: () => { closeMobilePanels(); setShowMobileLayers(true); } },
+            { id: 'layers', icon: '📑', label: 'Stack', active: showMobileLayers, onClick: () => { closeMobilePanels(); setShowMobileLayers(true); }, show: state.layers.length > 1 },
           ].filter(item => item.show !== false).map(item => (
             <button 
               key={item.id}

@@ -610,7 +610,7 @@ const App: React.FC = () => {
     const isTransform = state.activeMode === EditMode.TRANSFORM;
 
     if (!prompt.trim() && !isBackgroundRemoval && !isEnhance && !isRemoval && !isColorGrading && !isBlur && !isRawDev && !isStyleTransfer && !isSocial && !isPoster && !isLogo && !isCollage && !isCrop && !isTransform && state.activeMode !== EditMode.GENERATE) { 
-      handleError("Please describe a transformation or select a tool."); return; 
+      handleError("Please select a tool or provide a prompt."); return; 
     }
 
     setState(prev => ({ ...prev, isProcessing: true, error: null }));
@@ -2066,17 +2066,19 @@ const App: React.FC = () => {
           {state.activeMode !== EditMode.COLLAGE && state.activeMode !== EditMode.SOCIAL && state.activeMode !== EditMode.POSTER && state.activeMode !== EditMode.LOGO && (
             <div className="max-w-3xl mx-auto flex flex-col gap-3">
               <div className="flex gap-2">
-                  <textarea 
-                    rows={1} 
-                    value={prompt} 
-                    onChange={(e) => setPrompt(e.target.value)} 
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAction(); } }} 
-                    placeholder="Instruct the Engine..." 
-                    disabled={state.isProcessing} 
-                    className="flex-1 bg-slate-900/80 border border-slate-800 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-xl placeholder-slate-600" 
-                  />
-                  <button onClick={handleAction} disabled={state.isProcessing} className="px-12 rounded-2xl font-black uppercase text-xs tracking-widest bg-fuchsia-600 text-white hover:bg-fuchsia-500 transition-all shadow-xl active:scale-95 disabled:bg-slate-800">
-                    {state.activeMode === EditMode.REMOVE ? 'Remove' : 'Execute'}
+                  {state.activeMode === EditMode.GENERATE && (
+                    <textarea 
+                      rows={1} 
+                      value={prompt} 
+                      onChange={(e) => setPrompt(e.target.value)} 
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAction(); } }} 
+                      placeholder="Instruct the Engine..." 
+                      disabled={state.isProcessing} 
+                      className="flex-1 bg-slate-900/80 border border-slate-800 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-xl placeholder-slate-600" 
+                    />
+                  )}
+                  <button onClick={handleAction} disabled={state.isProcessing} className={`px-12 rounded-2xl font-black uppercase text-xs tracking-widest bg-fuchsia-600 text-white hover:bg-fuchsia-500 transition-all shadow-xl active:scale-95 disabled:bg-slate-800 ${state.activeMode !== EditMode.GENERATE ? 'w-full py-5' : ''}`}>
+                    {state.activeMode === EditMode.REMOVE ? 'Remove' : (state.activeMode === EditMode.GENERATE ? 'Generate' : 'Execute')}
                   </button>
               </div>
             </div>
@@ -2337,13 +2339,23 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {state.activeMode !== EditMode.COLLAGE && (
+            {(state.activeMode === EditMode.GENERATE || state.activeMode === EditMode.SOCIAL || state.activeMode === EditMode.POSTER || state.activeMode === EditMode.LOGO || state.activeMode === EditMode.COLLAGE) && (
               <div className="space-y-4 pt-4 border-t border-slate-800">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Instruction Prompt</label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                  {state.activeMode === EditMode.SOCIAL ? 'Framing Guidance' : 
+                   state.activeMode === EditMode.POSTER ? 'Event Details' :
+                   state.activeMode === EditMode.LOGO ? 'Brand Concept' :
+                   state.activeMode === EditMode.COLLAGE ? 'Style Guidance' : 'Instruction Prompt'}
+                </label>
                 <textarea 
                   value={prompt} 
                   onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Describe your vision..."
+                  placeholder={
+                    state.activeMode === EditMode.SOCIAL ? "Describe the framing..." :
+                    state.activeMode === EditMode.POSTER ? "Event details, headlines..." :
+                    state.activeMode === EditMode.LOGO ? "Business name, industry..." :
+                    state.activeMode === EditMode.COLLAGE ? "Describe the mood..." : "Describe your vision..."
+                  }
                   className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl px-5 py-4 text-xs focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-inner"
                   rows={3}
                 />
@@ -2359,7 +2371,11 @@ const App: React.FC = () => {
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>{state.activeMode === EditMode.REMOVE ? 'Remove' : 'Apply Transformation'}</span>
+                  <span>
+                    {state.activeMode === EditMode.REMOVE ? 'Remove' : 
+                     (state.activeMode === EditMode.GENERATE || state.activeMode === EditMode.SOCIAL || state.activeMode === EditMode.POSTER || state.activeMode === EditMode.LOGO) ? 'Generate' : 
+                     state.activeMode === EditMode.COLLAGE ? 'Compose' : 'Apply'}
+                  </span>
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                 </>
               )}

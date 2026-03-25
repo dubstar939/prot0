@@ -339,14 +339,6 @@ export default function App() {
                   }}
                 />
                 
-                {/* Neural Scan Line */}
-                <motion.div 
-                  initial={{ top: '-10%' }}
-                  animate={{ top: '110%' }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="absolute left-0 right-0 h-[2px] bg-accent/30 shadow-[0_0_15px_rgba(255,255,255,0.5)] z-10 pointer-events-none"
-                />
-                
                 {/* Neural Processing Overlay */}
                 <AnimatePresence>
                   {isProcessing && (

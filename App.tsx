@@ -103,6 +103,69 @@ export default function App() {
     setSettings(DEFAULT_SETTINGS);
   };
 
+  const handleExport = async () => {
+    if (!image) return;
+    
+    setIsProcessing(true);
+    
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = image;
+      
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+      
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      // Set canvas size to match image
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      // Apply filters to context
+      const { exposure, contrast, saturation, bokeh, whiteBalance, sharpen } = settings;
+      let filters = [];
+      if (exposure !== 0) filters.push(`brightness(${100 + exposure}%)`);
+      if (contrast !== 0) filters.push(`contrast(${100 + contrast}%)`);
+      if (saturation !== 0) filters.push(`saturate(${100 + saturation}%)`);
+      if (bokeh !== 0) filters.push(`blur(${bokeh / 10}px)`);
+      if (whiteBalance !== 0) filters.push(`hue-rotate(${whiteBalance}deg)`);
+      if (sharpen > 0) filters.push(`contrast(${100 + sharpen / 2}%)`);
+      
+      ctx.filter = filters.join(' ');
+      
+      // Handle transformations
+      if (settings.straighten !== 0) {
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((settings.straighten * Math.PI) / 180);
+        ctx.translate(-canvas.width / 2, -canvas.height / 2);
+      }
+      
+      ctx.drawImage(img, 0, 0);
+      
+      // Trigger download using toBlob for better performance with large images
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = `prot0-neural-export-${Date.now()}.jpg`;
+        link.href = url;
+        link.click();
+        
+        // Cleanup
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+      }, 'image/jpeg', 0.95);
+    } catch (error) {
+      console.error('Export failed:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const cssFilters = useMemo(() => {
     const { exposure, contrast, saturation, sharpen, noiseReduction, whiteBalance, bokeh } = settings;
     let filters = [];
@@ -214,9 +277,27 @@ export default function App() {
       case 'EXPORT':
         return (
           <div className="space-y-4">
-            <ExportButton label="Social Ready" icon={Share2} description="Optimized for Instagram, TikTok, etc." />
-            <ExportButton label="Print Ready" icon={Printer} description="High-resolution, CMYK profile." />
-            <ExportButton label="Web Optimized" icon={Globe} description="Fast loading, small file size." />
+            <ExportButton 
+              label="Social Ready" 
+              icon={Share2} 
+              description="Optimized for Instagram, TikTok, etc." 
+              onClick={handleExport}
+              disabled={isProcessing}
+            />
+            <ExportButton 
+              label="Print Ready" 
+              icon={Printer} 
+              description="High-resolution, CMYK profile." 
+              onClick={handleExport}
+              disabled={isProcessing}
+            />
+            <ExportButton 
+              label="Web Optimized" 
+              icon={Globe} 
+              description="Fast loading, small file size." 
+              onClick={handleExport}
+              disabled={isProcessing}
+            />
           </div>
         );
       default:
@@ -284,7 +365,11 @@ export default function App() {
             <button onClick={resetSettings} className="prot0-button prot0-button-secondary py-1 px-2 md:py-1.5 md:px-3 text-[10px] md:text-xs">
               <Trash2 size={12} className="md:w-3.5 md:h-3.5" /> <span className="hidden sm:inline">Reset</span>
             </button>
-            <button className="prot0-button prot0-button-primary py-1 px-3 md:py-1.5 md:px-4 text-[10px] md:text-xs font-bold">
+            <button 
+              onClick={handleExport}
+              disabled={!image}
+              className="prot0-button prot0-button-primary py-1 px-3 md:py-1.5 md:px-4 text-[10px] md:text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <Download size={12} className="md:w-3.5 md:h-3.5" /> <span className="hidden sm:inline">Export</span>
             </button>
           </div>
@@ -429,7 +514,7 @@ export default function App() {
   );
 }
 
-function ControlGroup({ label, value, min, max, onChange, icon: Icon }: { label: string, value: number, min: number, max: number, onChange: (v: number) => void, icon: any }) {
+const ControlGroup = React.memo(({ label, value, min, max, onChange, icon: Icon }: { label: string, value: number, min: number, max: number, onChange: (v: number) => void, icon: any }) => {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -449,11 +534,15 @@ function ControlGroup({ label, value, min, max, onChange, icon: Icon }: { label:
       />
     </div>
   );
-}
+});
 
-function ExportButton({ label, icon: Icon, description }: { label: string, icon: any, description: string }) {
+const ExportButton = React.memo(({ label, icon: Icon, description, onClick, disabled }: { label: string, icon: any, description: string, onClick?: () => void, disabled?: boolean }) => {
   return (
-    <button className="w-full group text-left p-4 rounded-xl bg-surface-hover border border-border hover:border-accent-muted transition-all duration-300">
+    <button 
+      onClick={onClick}
+      disabled={disabled}
+      className="w-full group text-left p-4 rounded-xl bg-surface-hover border border-border hover:border-accent-muted transition-all duration-300 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+    >
       <div className="flex items-center gap-3 mb-1">
         <div className="p-2 rounded-lg bg-bg text-accent-muted group-hover:text-accent transition-colors">
           <Icon size={18} />
@@ -463,7 +552,7 @@ function ExportButton({ label, icon: Icon, description }: { label: string, icon:
       <p className="text-[10px] text-accent-muted ml-11">{description}</p>
     </button>
   );
-}
+});
 
 function ViewportTool({ icon: Icon, label }: { icon: any, label: string }) {
   return (

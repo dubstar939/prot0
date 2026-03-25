@@ -224,101 +224,6 @@ const CropOverlay: React.FC<{
   );
 };
 
-const TransformOverlay: React.FC<{
-  layer: Layer,
-  onChange: (updates: Partial<Layer>) => void,
-  imageRef: React.RefObject<HTMLImageElement>
-}> = ({ layer, onChange, imageRef }) => {
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragType, setDragType] = useState<'move' | 'scale' | 'rotate' | null>(null);
-  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
-  const [startLayer, setStartLayer] = useState(layer);
-
-  const handleStart = (clientX: number, clientY: number, type: 'move' | 'scale' | 'rotate') => {
-    setIsDragging(true);
-    setDragType(type);
-    setStartPos({ x: clientX, y: clientY });
-    setStartLayer(layer);
-  };
-
-  useEffect(() => {
-    const handleMove = (clientX: number, clientY: number) => {
-      if (!isDragging || !imageRef.current) return;
-      const dx = clientX - startPos.x;
-      const dy = clientY - startPos.y;
-
-      if (dragType === 'move') {
-        onChange({
-          x: (startLayer.x || 0) + dx,
-          y: (startLayer.y || 0) + dy
-        });
-      } else if (dragType === 'scale') {
-        const scaleChange = dx / 100;
-        onChange({
-          scale: Math.max(0.1, (startLayer.scale || 1) + scaleChange)
-        });
-      } else if (dragType === 'rotate') {
-        const rotationChange = dx;
-        onChange({
-          rotation: (startLayer.rotation || 0) + rotationChange
-        });
-      }
-    };
-
-    const onMouseMove = (e: MouseEvent) => handleMove(e.clientX, e.clientY);
-    const onTouchMove = (e: TouchEvent) => handleMove(e.touches[0].clientX, e.touches[0].clientY);
-    const onEnd = () => setIsDragging(false);
-
-    if (isDragging) {
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onEnd);
-      window.addEventListener('touchmove', onTouchMove);
-      window.addEventListener('touchend', onEnd);
-    }
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onEnd);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onEnd);
-    };
-  }, [isDragging, dragType, startPos, startLayer, onChange, imageRef]);
-
-  return (
-    <div 
-      className="absolute border-2 border-dashed border-fuchsia-500/50 z-50 pointer-events-none"
-      style={{ 
-        width: '100%', 
-        height: '100%',
-        transform: `translate(${layer.x || 0}px, ${layer.y || 0}px) scale(${layer.scale || 1}) rotate(${layer.rotation || 0}deg)`
-      }}
-    >
-      <div 
-        className="absolute inset-0 cursor-move pointer-events-auto"
-        onMouseDown={(e) => { e.stopPropagation(); handleStart(e.clientX, e.clientY, 'move'); }}
-        onTouchStart={(e) => { e.stopPropagation(); handleStart(e.touches[0].clientX, e.touches[0].clientY, 'move'); }}
-      />
-      
-      {/* Scale Handle */}
-      <div 
-        className="absolute -bottom-3 -right-3 w-8 h-8 bg-white border-2 border-fuchsia-500 rounded-full shadow-lg flex items-center justify-center cursor-se-resize pointer-events-auto transition-transform hover:scale-110"
-        onMouseDown={(e) => { e.stopPropagation(); handleStart(e.clientX, e.clientY, 'scale'); }}
-        onTouchStart={(e) => { e.stopPropagation(); handleStart(e.touches[0].clientX, e.touches[0].clientY, 'scale'); }}
-      >
-        <span className="text-[10px]">↔️</span>
-      </div>
-
-      {/* Rotate Handle */}
-      <div 
-        className="absolute -top-10 left-1/2 -translate-x-1/2 w-8 h-8 bg-white border-2 border-fuchsia-500 rounded-full shadow-lg flex items-center justify-center cursor-alias pointer-events-auto transition-transform hover:scale-110"
-        onMouseDown={(e) => { e.stopPropagation(); handleStart(e.clientX, e.clientY, 'rotate'); }}
-        onTouchStart={(e) => { e.stopPropagation(); handleStart(e.touches[0].clientX, e.touches[0].clientY, 'rotate'); }}
-      >
-        <span className="text-[10px]">🔄</span>
-      </div>
-    </div>
-  );
-};
-
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>({
     layers: [],
@@ -336,7 +241,6 @@ const App: React.FC = () => {
 
   const [prompt, setPrompt] = useState('');
   const [showExportModal, setShowExportModal] = useState(false);
-  const [showLayers, setShowLayers] = useState(false);
   const [showMobileLayers, setShowMobileLayers] = useState(false);
   const [showMobileTools, setShowMobileTools] = useState(false);
   const [showMobileSuite, setShowMobileSuite] = useState(false);
@@ -368,7 +272,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const update = () => {
-      if ((state.activeMode === EditMode.CROP || state.activeMode === EditMode.TRANSFORM) && imageRef.current) {
+      if (state.activeMode === EditMode.CROP && imageRef.current) {
         const rect = imageRef.current.getBoundingClientRect();
         const parentRect = imageRef.current.parentElement?.getBoundingClientRect();
         if (rect && parentRect) {
@@ -580,15 +484,11 @@ const App: React.FC = () => {
           name: file.name, 
           blendMode: 'normal',
           isRaw: isRaw,
-          rawParams: isRaw ? { exposure: 0, temperature: 5600, tint: 0, highlights: 0, shadows: 0 } : undefined,
-          x: 0,
-          y: 0,
-          scale: 1,
-          rotation: 0
+          rawParams: isRaw ? { exposure: 0, temperature: 5600, tint: 0, highlights: 0, shadows: 0 } : undefined
         };
         const newLayers = [newLayer, ...state.layers];
         addToHistory(newLayers, newLayer.id, isRaw ? 'Import RAW Negative' : 'Import Layer');
-        setState(prev => ({ ...prev, activeMode: isRaw ? EditMode.RAW_DEV : EditMode.TRANSFORM }));
+        setState(prev => ({ ...prev, activeMode: isRaw ? EditMode.RAW_DEV : EditMode.EDIT }));
       };
       reader.readAsDataURL(file);
     }
@@ -607,10 +507,9 @@ const App: React.FC = () => {
     const isLogo = state.activeMode === EditMode.LOGO;
     const isCollage = state.activeMode === EditMode.COLLAGE;
     const isCrop = state.activeMode === EditMode.CROP;
-    const isTransform = state.activeMode === EditMode.TRANSFORM;
 
-    if (!prompt.trim() && !isBackgroundRemoval && !isEnhance && !isRemoval && !isColorGrading && !isBlur && !isRawDev && !isStyleTransfer && !isSocial && !isPoster && !isLogo && !isCollage && !isCrop && !isTransform && state.activeMode !== EditMode.GENERATE) { 
-      handleError("Please select a tool or provide a prompt."); return; 
+    if (!prompt.trim() && !isBackgroundRemoval && !isEnhance && !isRemoval && !isColorGrading && !isBlur && !isRawDev && !isStyleTransfer && !isSocial && !isPoster && !isLogo && !isCollage && !isCrop && state.activeMode !== EditMode.GENERATE) { 
+      handleError("Please describe a transformation or select a tool."); return; 
     }
 
     setState(prev => ({ ...prev, isProcessing: true, error: null }));
@@ -682,11 +581,6 @@ const App: React.FC = () => {
           } else {
             resultUrl = currentActiveLayer.url;
           }
-        } else if (isTransform) {
-          // Locking in placement
-          addToHistory(state.layers, state.activeLayerId!, 'Lock Placement');
-          setState(prev => ({ ...prev, activeMode: EditMode.EDIT }));
-          return;
         } else if (isPoster || isLogo) {
           const preset = isPoster 
             ? POSTER_PRESETS.find(p => p.id === activePoster)
@@ -1067,35 +961,13 @@ const App: React.FC = () => {
     setDragOverLayerId(null);
   };
 
-  const deleteLayer = (id: string) => {
-    const newLayers = state.layers.filter(l => l.id !== id);
-    const nextActiveId = newLayers.length > 0 ? newLayers[0].id : null;
-    addToHistory(newLayers, nextActiveId, 'Delete Layer');
-  };
-
-  const moveLayer = (layerId: string, direction: 'up' | 'down' | 'top' | 'bottom') => {
-    const index = state.layers.findIndex(l => l.id === layerId);
-    if (index === -1) return;
-    const newLayers = [...state.layers];
-    if (direction === 'up' && index > 0) {
-      [newLayers[index], newLayers[index - 1]] = [newLayers[index - 1], newLayers[index]];
-    } else if (direction === 'down' && index < newLayers.length - 1) {
-      [newLayers[index], newLayers[index + 1]] = [newLayers[index + 1], newLayers[index]];
-    } else if (direction === 'top') {
-      const [item] = newLayers.splice(index, 1);
-      newLayers.unshift(item);
-    } else if (direction === 'bottom') {
-      const [item] = newLayers.splice(index, 1);
-      newLayers.push(item);
-    }
-    addToHistory(newLayers, layerId, `Reorder Layer`);
-  };
-
   const LayerItem: React.FC<{ layer: Layer }> = ({ layer }) => {
     const isSelected = selectedLayerIds.includes(layer.id);
     const isActive = state.activeLayerId === layer.id;
     const isDragging = draggedLayerId === layer.id;
     const isDragOver = dragOverLayerId === layer.id;
+    const blendModeShort = BLEND_MODES.find(m => m.value === layer.blendMode)?.short || 'NRM';
+    const isModified = layer.url !== layer.originalUrl;
     const inSelectionMode = state.activeMode === EditMode.COLLAGE;
 
     return (
@@ -1112,49 +984,72 @@ const App: React.FC = () => {
              setState(prev => ({ ...prev, activeLayerId: layer.id })); 
           }
         }}
-        className={`p-3 rounded-2xl border transition-all cursor-grab active:cursor-grabbing group/item relative ${isActive && !inSelectionMode ? 'bg-fuchsia-600/20 border-fuchsia-500/50 shadow-lg' : isSelected ? 'bg-fuchsia-500/10 border-fuchsia-500 shadow-md ring-1 ring-fuchsia-500/50' : 'bg-slate-800/40 border-slate-800 hover:border-slate-700'} ${isDragging ? 'opacity-40' : ''} ${isDragOver ? 'border-t-2 border-t-fuchsia-500' : ''}`}
+        className={`p-3 md:p-3.5 rounded-2xl border transition-all cursor-grab active:cursor-grabbing group/item relative ${isActive && !inSelectionMode ? 'bg-fuchsia-600/20 border-fuchsia-500/50 shadow-lg' : isSelected ? 'bg-fuchsia-500/10 border-fuchsia-500 shadow-md ring-1 ring-fuchsia-500/50' : 'bg-slate-800/40 border-slate-800 hover:border-slate-700'} ${isDragging ? 'opacity-40' : ''} ${isDragOver ? 'border-t-2 border-t-fuchsia-500' : ''}`}
       >
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-slate-900 overflow-hidden border border-slate-700 flex-shrink-0 relative shadow-inner">
-            <img src={isComparing && isActive ? layer.originalUrl : layer.url} className="w-full h-full object-cover" />
-            {!layer.isVisible && <div className="absolute inset-0 bg-slate-950/60 flex items-center justify-center text-[10px]">🕶</div>}
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-black truncate text-slate-100 uppercase tracking-wider">{layer.name}</p>
-            <div className="flex items-center gap-3 mt-2">
-              <button 
-                onClick={(e) => { e.stopPropagation(); moveLayer(layer.id, 'up'); }}
-                disabled={state.layers.indexOf(layer) === 0}
-                className="text-xs text-slate-500 hover:text-fuchsia-400 disabled:opacity-20"
-              >
-                ▲
-              </button>
-              <button 
-                onClick={(e) => { e.stopPropagation(); moveLayer(layer.id, 'down'); }}
-                disabled={state.layers.indexOf(layer) === state.layers.length - 1}
-                className="text-xs text-slate-500 hover:text-fuchsia-400 disabled:opacity-20"
-              >
-                ▼
-              </button>
-              <div className="w-px h-3 bg-slate-700 mx-1" />
-              <button 
-                onClick={(e) => { e.stopPropagation(); setState(prev => ({ ...prev, activeMode: EditMode.TRANSFORM, activeLayerId: layer.id })); }}
-                className={`text-[10px] font-black uppercase tracking-widest hover:text-fuchsia-400 transition-colors ${state.activeMode === EditMode.TRANSFORM && isActive ? 'text-fuchsia-400' : 'text-slate-500'}`}
-              >
-                Position
-              </button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className={`absolute -left-2 -top-2 z-20 w-5 h-5 rounded-full flex items-center justify-center transition-all ${isSelected ? 'bg-fuchsia-500 scale-100' : 'bg-slate-700/50 opacity-0 group-hover/item:opacity-100 scale-75'}`}>
+               {isSelected && <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" /></svg>}
+            </div>
+            <div className={`w-12 h-12 rounded-lg bg-slate-900 overflow-hidden border transition-colors flex-shrink-0 relative shadow-inner ${isSelected ? 'border-fuchsia-500' : 'border-slate-700'}`}>
+              <img src={isComparing && isActive ? layer.originalUrl : layer.url} className="w-full h-full object-cover" />
+              {layer.blendMode !== 'normal' && (
+                <div className="absolute top-0 right-0 bg-fuchsia-600 px-1 py-0.5 rounded-bl-md shadow-md">
+                   <span className="text-[7px] font-black text-white leading-none">{blendModeShort}</span>
+                </div>
+              )}
             </div>
           </div>
-
-          <div className="flex items-center gap-2">
-              <button 
-                onClick={(e) => { e.stopPropagation(); deleteLayer(layer.id); }}
-                className="p-2 rounded-xl hover:bg-red-500/20 text-red-400 transition-colors"
-                title="Discard Image"
-              >
-                🗑️
-              </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <p className="text-[11px] font-bold truncate text-slate-100">{layer.name}</p>
+                {layer.isRaw && (
+                  <span className="text-[6px] font-black bg-amber-500 text-black px-1.5 py-0.5 rounded-full uppercase tracking-widest">RAW</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                {isModified && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); resetLayerToOriginal(layer.id); }} 
+                    className="p-1 text-slate-500 hover:text-red-400 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  </button>
+                )}
+                <select 
+                  value={layer.blendMode} 
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => { e.stopPropagation(); updateSelectedLayer({ blendMode: e.target.value as BlendMode }); }}
+                  className="bg-transparent text-[9px] uppercase font-black text-slate-500 hover:text-fuchsia-400 focus:outline-none cursor-pointer text-right min-w-[50px]"
+                >
+                  {BLEND_MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+              </div>
+            </div>
+            {!inSelectionMode && (
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); updateSelectedLayer({ isVisible: !layer.isVisible }); }}
+                  className={`text-sm p-1.5 rounded-lg hover:bg-slate-700 transition-colors ${layer.isVisible ? 'text-fuchsia-400' : 'text-slate-600'}`}
+                >
+                  {layer.isVisible ? '👁' : '🕶'}
+                </button>
+                <input 
+                  type="range" min="0" max="100" value={layer.opacity} 
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => { e.stopPropagation(); updateSelectedLayer({ opacity: parseInt(e.target.value) }); }}
+                  className="w-full accent-fuchsia-500 h-1.5 bg-slate-700 rounded-full cursor-pointer"
+                />
+                <span className="text-[9px] font-black text-slate-500 min-w-[24px] text-right">{layer.opacity}%</span>
+              </div>
+            )}
+            {inSelectionMode && (
+              <div className="flex items-center justify-between">
+                <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">{isSelected ? 'Active Selection' : 'Ready for Creative Mix'}</span>
+                {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-500 animate-pulse" />}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1164,16 +1059,19 @@ const App: React.FC = () => {
   const LayerPanelContent = () => {
     return (
       <div className="flex flex-col h-full bg-slate-900/95 md:bg-slate-900 backdrop-blur-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+        <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
           <div className="flex flex-col gap-0.5">
-            <h3 className="text-xs font-black text-white uppercase tracking-[0.2em]">Your Stack</h3>
-            <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Manage your layers</p>
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Creative Stack</h3>
+            <div className="flex gap-2">
+              <button onClick={() => toggleAllGroups(false)} className="text-[8px] font-black text-slate-600 hover:text-slate-400 uppercase tracking-widest">Expand All</button>
+              <button onClick={() => toggleAllGroups(true)} className="text-[8px] font-black text-slate-600 hover:text-slate-400 uppercase tracking-widest">Collapse</button>
+            </div>
           </div>
-          <div className="flex gap-2">
-             <button onClick={createGroup} className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-fuchsia-400 transition-all border border-slate-700">
+          <div className="flex gap-1.5">
+             <button onClick={createGroup} className="p-2 rounded-xl hover:bg-slate-800 text-slate-500 hover:text-fuchsia-400 transition-colors border border-transparent hover:border-slate-700">
                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
              </button>
-             <button onClick={mergeLayers} className="px-4 py-2 text-[10px] font-black text-fuchsia-400 uppercase border border-fuchsia-500/20 rounded-xl hover:bg-fuchsia-500/10 transition-all active:scale-95">Flatten</button>
+             <button onClick={mergeLayers} className="px-3 py-1.5 text-[10px] font-black text-fuchsia-400 uppercase border border-fuchsia-500/20 rounded-xl hover:bg-fuchsia-500/10 transition-all active:scale-95">Merge</button>
           </div>
         </div>
         
@@ -1242,16 +1140,19 @@ const App: React.FC = () => {
     if (!isOpen) return null;
     return (
       <div className="md:hidden fixed inset-0 z-[100] animate-in fade-in duration-300">
-        <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
-        <div className="absolute inset-x-0 bottom-0 max-h-[80vh] bg-slate-900 rounded-t-[2.5rem] border-t border-white/5 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-400 ease-out shadow-2xl">
-          <div className="w-full flex justify-center py-4 cursor-pointer" onClick={onClose}>
-            <div className="w-12 h-1.5 bg-slate-800 rounded-full" />
+        <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={onClose} />
+        <div className="absolute inset-x-0 bottom-0 max-h-[85vh] bg-slate-900 rounded-t-[3rem] border-t border-white/10 flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-500 ease-out-expo shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
+          <div className="w-full flex justify-center py-6 cursor-pointer" onClick={onClose}>
+            <div className="w-16 h-1.5 bg-slate-700 rounded-full opacity-40 hover:opacity-100 transition-opacity" />
           </div>
-          <div className="px-8 pb-4 border-b border-slate-800 flex items-center justify-between">
-            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{title}</h4>
-            <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 hover:text-white transition-colors">✕</button>
+          <div className="px-10 pb-6 border-b border-slate-800 flex items-center justify-between">
+            <div className="flex flex-col">
+              <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-500 mb-1">{title}</h4>
+              <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Creative Suite Hub</p>
+            </div>
+            <button onClick={onClose} className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors">✕</button>
           </div>
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-6 pb-24">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-8 pb-32">
             {children}
           </div>
         </div>
@@ -1260,14 +1161,15 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-full bg-slate-950 text-slate-100 overflow-hidden font-sans flex-col md:flex-row fixed inset-0">
+    <div className="flex h-screen w-full bg-slate-950 text-slate-100 overflow-hidden font-sans flex-col md:flex-row">
       
       {/* Desktop Sidebar */}
-      <aside className={`hidden md:flex flex-shrink-0 border-r border-slate-800 bg-slate-900/50 flex-col h-full overflow-hidden shadow-2xl z-40 transition-all duration-300 ${showLayers ? 'w-80' : 'w-0 border-none'}`}>
+      <aside className="hidden md:flex w-80 flex-shrink-0 border-r border-slate-800 bg-slate-900/50 flex-col h-full overflow-hidden shadow-2xl z-40">
         <div className="p-8"><Logo /></div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-2 space-y-8 min-w-[20rem]">
-          <nav className="space-y-8">
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-2 space-y-8">
+          <nav className="space-y-6">
             <section>
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">Toolbox</h3>
               <div className="grid grid-cols-1 gap-1">
                 {[
                   { id: EditMode.CROP, label: 'Crop Tool', icon: '✂️', desc: 'Optimize composition' },
@@ -1281,14 +1183,14 @@ const App: React.FC = () => {
                   <button 
                     key={mode.id} 
                     onClick={() => handleModeSwitch(mode.id as EditMode)} 
-                    className={`group flex items-center gap-4 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-300 ${state.activeMode === mode.id ? 'bg-fuchsia-600 text-white shadow-xl shadow-fuchsia-600/20 scale-[1.02]' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
+                    className={`group flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-300 ${state.activeMode === mode.id ? 'bg-fuchsia-600 text-white shadow-xl shadow-fuchsia-600/20 scale-[1.02]' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
                   >
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${state.activeMode === mode.id ? 'bg-white/20' : 'bg-slate-800 group-hover:bg-slate-700'}`}>
                       {mode.icon}
                     </div>
-                    <div className="flex flex-col items-start overflow-hidden text-left">
-                      <span className="font-black uppercase tracking-wider text-[10px] leading-none mb-1">{mode.label}</span>
-                      <span className={`text-[9px] font-bold truncate w-full ${state.activeMode === mode.id ? 'text-white/70' : 'text-slate-500'}`}>{mode.desc}</span>
+                    <div className="flex flex-col items-start overflow-hidden">
+                      <span className="font-bold tracking-tight leading-none mb-1">{mode.label}</span>
+                      <span className={`text-[10px] truncate w-full ${state.activeMode === mode.id ? 'text-white/70' : 'text-slate-500'}`}>{mode.desc}</span>
                     </div>
                   </button>
                 ))}
@@ -1296,6 +1198,7 @@ const App: React.FC = () => {
             </section>
 
             <section>
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">Creative Suite</h3>
               <div className="grid grid-cols-1 gap-1">
                 {[
                   { id: EditMode.GENERATE, label: 'Creative Create', icon: '✨', desc: 'Generate from text' },
@@ -1308,14 +1211,14 @@ const App: React.FC = () => {
                   <button 
                     key={mode.id} 
                     onClick={() => handleModeSwitch(mode.id as EditMode)} 
-                    className={`group flex items-center gap-4 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-300 ${state.activeMode === mode.id ? 'bg-fuchsia-600 text-white shadow-xl shadow-fuchsia-600/20 scale-[1.02]' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
+                    className={`group flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-medium transition-all duration-300 ${state.activeMode === mode.id ? 'bg-fuchsia-600 text-white shadow-xl shadow-fuchsia-600/20 scale-[1.02]' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
                   >
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all ${state.activeMode === mode.id ? 'bg-white/20' : 'bg-slate-800 group-hover:bg-slate-700'}`}>
                       {mode.icon}
                     </div>
-                    <div className="flex flex-col items-start overflow-hidden text-left">
-                      <span className="font-black uppercase tracking-wider text-[10px] leading-none mb-1">{mode.label}</span>
-                      <span className={`text-[9px] font-bold truncate w-full ${state.activeMode === mode.id ? 'text-white/70' : 'text-slate-500'}`}>{mode.desc}</span>
+                    <div className="flex flex-col items-start overflow-hidden">
+                      <span className="font-bold tracking-tight leading-none mb-1">{mode.label}</span>
+                      <span className={`text-[10px] truncate w-full ${state.activeMode === mode.id ? 'text-white/70' : 'text-slate-500'}`}>{mode.desc}</span>
                     </div>
                   </button>
                 ))}
@@ -1324,8 +1227,12 @@ const App: React.FC = () => {
 
             <section className="flex-1 flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-4 px-2">
-                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Looks</h3>
+                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Creative Looks</h3>
                 <div className="flex gap-2 items-center">
+                  <div className="flex gap-1">
+                    <button onClick={undo} disabled={state.historyIndex >= state.history.length - 1} className="p-1 text-slate-400 hover:text-white disabled:opacity-20 transition-all active:scale-90" title="Undo Filter"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg></button>
+                    <button onClick={redo} disabled={state.historyIndex === 0} className="p-1 text-slate-400 hover:text-white disabled:opacity-20 transition-all active:scale-90" title="Redo Filter"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" /></svg></button>
+                  </div>
                   <div className="flex gap-1 bg-slate-900/50 p-1 rounded-lg border border-slate-800">
                     {FILTER_CATEGORIES.map(cat => (
                       <button 
@@ -1387,32 +1294,13 @@ const App: React.FC = () => {
         </div>
 
         {/* Header */}
-        <header className="h-16 border-b border-slate-800/50 flex items-center justify-between px-4 md:px-8 bg-slate-950/60 backdrop-blur-xl z-30 flex-shrink-0">
+        <header className="h-16 border-b border-slate-800/50 flex items-center justify-between px-4 md:px-8 bg-slate-950/60 backdrop-blur-xl z-30">
           <div className="flex items-center gap-3">
             <Logo condensed className="md:hidden" />
             <div className="flex items-center gap-1 pr-2 md:pr-4 border-r border-slate-800">
               <button onClick={undo} disabled={state.historyIndex >= state.history.length - 1} className="p-2 text-slate-400 hover:text-white disabled:opacity-20 transition-all active:scale-90"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg></button>
               <button onClick={redo} disabled={state.historyIndex === 0} className="p-2 text-slate-400 hover:text-white disabled:opacity-20 transition-all active:scale-90"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" /></svg></button>
             </div>
-            <button 
-              onClick={() => {
-                setShowLayers(!showLayers);
-                setShowMobileLayers(!showMobileLayers);
-              }}
-              className={`p-2.5 rounded-xl border transition-all flex items-center gap-2 ${showLayers ? 'bg-fuchsia-600 border-fuchsia-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'} ${state.layers.length <= 1 ? 'hidden' : ''}`}
-            >
-              <span className="text-lg">📚</span>
-              <span className="hidden md:inline text-xs font-bold uppercase tracking-widest">Stack</span>
-            </button>
-            {state.activeLayerId && (
-              <button 
-                onClick={() => deleteLayer(state.activeLayerId!)}
-                className="p-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl text-red-400 transition-all flex items-center justify-center"
-                title="Discard Image"
-              >
-                🗑️
-              </button>
-            )}
             {currentActiveLayer && currentActiveLayer.url !== currentActiveLayer.originalUrl && (
               <button 
                 onMouseDown={() => setIsComparing(true)}
@@ -1442,26 +1330,15 @@ const App: React.FC = () => {
                <span className="hidden md:inline">Help</span>
                <span className="text-lg">❓</span>
             </button>
-            {state.activeMode ? (
-              <button 
-                onClick={handleAction} 
-                disabled={state.isProcessing}
-                className="p-2.5 bg-fuchsia-600 rounded-xl text-xs font-black uppercase shadow-lg disabled:opacity-30 flex items-center gap-2 animate-in slide-in-from-right-4"
-              >
-                 <span>Done</span>
-                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-              </button>
-            ) : (
-              <button onClick={() => setShowExportModal(true)} disabled={state.layers.length === 0} className="p-2.5 bg-fuchsia-600 rounded-xl text-xs font-black uppercase shadow-lg disabled:opacity-30 flex items-center gap-2">
-                 <span className="hidden md:inline">Publish</span>
-                 <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
-              </button>
-            )}
+            <button onClick={() => setShowExportModal(true)} disabled={state.layers.length === 0} className="p-2.5 bg-fuchsia-600 rounded-xl text-xs font-black uppercase shadow-lg disabled:opacity-30 flex items-center gap-2">
+               <span className="hidden md:inline">Publish</span>
+               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+            </button>
           </div>
         </header>
 
         {/* Viewport Canvas Area */}
-        <div ref={workspaceRef} className="flex-1 flex items-center justify-center p-4 md:p-10 relative overflow-hidden bg-[radial-gradient(#1e293b_1.5px,transparent_1.5px)] [background-size:24px_24px]">
+        <div ref={workspaceRef} className="flex-1 flex items-center justify-center p-6 md:p-10 relative overflow-hidden bg-[radial-gradient(#1e293b_1.5px,transparent_1.5px)] [background-size:24px_24px]">
           {/* 939PRO Watermark */}
           <div className="absolute top-8 right-8 z-0 pointer-events-none select-none opacity-20">
             <span className="text-4xl font-black tracking-[0.5em] text-slate-800 uppercase">939PRO</span>
@@ -1496,11 +1373,10 @@ const App: React.FC = () => {
                     key={layer.id}
                     ref={layer.id === state.activeLayerId ? imageRef : undefined}
                     src={isComparing && layer.id === state.activeLayerId ? layer.originalUrl : layer.url} 
-                    className={`max-h-full max-w-full object-contain ${state.activeMode === EditMode.TRANSFORM && layer.id === state.activeLayerId ? '' : 'transition-all duration-300'} ${!layer.isVisible && state.activeMode !== EditMode.COLLAGE ? 'opacity-0 pointer-events-none' : ''} ${layer.id === state.activeLayerId && state.activeMode !== EditMode.COLLAGE ? 'relative z-10 shadow-2xl' : 'z-0 absolute inset-0 m-auto opacity-50'} ${state.activeMode === EditMode.COLLAGE && selectedLayerIds.includes(layer.id) ? 'border-4 border-fuchsia-500 rounded-lg opacity-100 scale-95 relative' : state.activeMode === EditMode.COLLAGE ? 'hidden' : ''}`} 
+                    className={`max-h-full max-w-full object-contain transition-all duration-300 ${!layer.isVisible && state.activeMode !== EditMode.COLLAGE ? 'opacity-0 pointer-events-none' : ''} ${layer.id === state.activeLayerId && state.activeMode !== EditMode.COLLAGE ? 'relative z-10 shadow-2xl scale-[1.02]' : 'z-0 absolute inset-0 m-auto opacity-50'} ${state.activeMode === EditMode.COLLAGE && selectedLayerIds.includes(layer.id) ? 'border-4 border-fuchsia-500 rounded-lg opacity-100 scale-95 relative' : state.activeMode === EditMode.COLLAGE ? 'hidden' : ''}`} 
                     style={{
                       opacity: state.activeMode === EditMode.COLLAGE ? 1 : layer.isVisible ? layer.opacity / 100 : 0,
                       mixBlendMode: state.activeMode === EditMode.COLLAGE ? 'normal' : layer.blendMode,
-                      transform: `translate(${layer.x || 0}px, ${layer.y || 0}px) scale(${layer.scale || 1}) rotate(${layer.rotation || 0}deg)`,
                       filter: (() => {
                         if (layer.id !== state.activeLayerId) return layer.cssFilter || 'none';
                         let currentFilters = layer.cssFilter || '';
@@ -1543,20 +1419,6 @@ const App: React.FC = () => {
                     }}
                   >
                     <CropOverlay rect={cropRect} onChange={setCropRect} imageRef={imageRef} />
-                  </div>
-                )}
-
-                {state.activeMode === EditMode.TRANSFORM && currentActiveLayer && cropBounds.width > 0 && (
-                  <div 
-                    className="absolute z-50 pointer-events-auto"
-                    style={{ 
-                      width: cropBounds.width, 
-                      height: cropBounds.height, 
-                      left: cropBounds.left, 
-                      top: cropBounds.top 
-                    }}
-                  >
-                    <TransformOverlay layer={currentActiveLayer} onChange={updateSelectedLayer} imageRef={imageRef} />
                   </div>
                 )}
 
@@ -1623,52 +1485,6 @@ const App: React.FC = () => {
                   <span>Compose</span>
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
                 </button>
-              </div>
-            </div>
-          )}
-
-          {state.activeMode === EditMode.TRANSFORM && (
-            <div className="max-w-2xl mx-auto bg-slate-900/95 backdrop-blur-3xl border border-white/5 rounded-[2rem] p-6 animate-in slide-in-from-bottom-6 shadow-2xl flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className={`flex bg-slate-800 p-1 rounded-xl border border-slate-700 flex-shrink-0 ${state.layers.length <= 1 ? 'hidden' : ''}`}>
-                  <button 
-                    onClick={() => moveLayer(state.activeLayerId!, 'top')}
-                    className="px-4 py-2 text-[10px] font-black uppercase text-slate-400 hover:text-white transition-colors"
-                  >
-                    To Front
-                  </button>
-                  <button 
-                    onClick={() => moveLayer(state.activeLayerId!, 'bottom')}
-                    className="px-4 py-2 text-[10px] font-black uppercase text-slate-400 hover:text-white transition-colors border-l border-slate-700"
-                  >
-                    To Back
-                  </button>
-                </div>
-
-                <div className="flex-1 flex items-center gap-4 bg-slate-800/50 px-4 py-2 rounded-xl border border-slate-700/50">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Opacity</span>
-                  <input 
-                    type="range" min="0" max="100" value={currentActiveLayer?.opacity || 100} 
-                    onChange={(e) => updateSelectedLayer({ opacity: parseInt(e.target.value) })}
-                    className="flex-1 accent-fuchsia-500 h-1.5 bg-slate-900 rounded-full cursor-pointer"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => deleteLayer(state.activeLayerId!)}
-                    className="w-10 h-10 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded-xl text-red-400 transition-all flex items-center justify-center"
-                    title="Discard Image"
-                  >
-                    🗑️
-                  </button>
-                  <button 
-                    onClick={handleAction} 
-                    className="h-10 px-6 bg-fuchsia-600 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-xl shadow-lg hover:bg-fuchsia-500 transition-all active:scale-95 flex items-center gap-2"
-                  >
-                    <span>Done</span>
-                  </button>
-                </div>
               </div>
             </div>
           )}
@@ -2066,19 +1882,17 @@ const App: React.FC = () => {
           {state.activeMode !== EditMode.COLLAGE && state.activeMode !== EditMode.SOCIAL && state.activeMode !== EditMode.POSTER && state.activeMode !== EditMode.LOGO && (
             <div className="max-w-3xl mx-auto flex flex-col gap-3">
               <div className="flex gap-2">
-                  {state.activeMode === EditMode.GENERATE && (
-                    <textarea 
-                      rows={1} 
-                      value={prompt} 
-                      onChange={(e) => setPrompt(e.target.value)} 
-                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAction(); } }} 
-                      placeholder="Instruct the Engine..." 
-                      disabled={state.isProcessing} 
-                      className="flex-1 bg-slate-900/80 border border-slate-800 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-xl placeholder-slate-600" 
-                    />
-                  )}
-                  <button onClick={handleAction} disabled={state.isProcessing} className={`px-12 rounded-2xl font-black uppercase text-xs tracking-widest bg-fuchsia-600 text-white hover:bg-fuchsia-500 transition-all shadow-xl active:scale-95 disabled:bg-slate-800 ${state.activeMode !== EditMode.GENERATE ? 'w-full py-5' : ''}`}>
-                    {state.activeMode === EditMode.REMOVE ? 'Remove' : (state.activeMode === EditMode.GENERATE ? 'Generate' : 'Execute')}
+                  <textarea 
+                    rows={1} 
+                    value={prompt} 
+                    onChange={(e) => setPrompt(e.target.value)} 
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAction(); } }} 
+                    placeholder="Instruct the Engine..." 
+                    disabled={state.isProcessing} 
+                    className="flex-1 bg-slate-900/80 border border-slate-800 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-xl placeholder-slate-600" 
+                  />
+                  <button onClick={handleAction} disabled={state.isProcessing} className="px-12 rounded-2xl font-black uppercase text-xs tracking-widest bg-fuchsia-600 text-white hover:bg-fuchsia-500 transition-all shadow-xl active:scale-95 disabled:bg-slate-800">
+                    {state.activeMode === EditMode.REMOVE ? 'Remove' : 'Execute'}
                   </button>
               </div>
             </div>
@@ -2092,7 +1906,7 @@ const App: React.FC = () => {
             { id: 'suite', icon: '✨', label: 'Suite', active: showMobileSuite, onClick: () => { closeMobilePanels(); setShowMobileSuite(true); } },
             { id: 'controls', icon: '⚙️', label: 'Edit', active: showMobileControls, onClick: () => { closeMobilePanels(); setShowMobileControls(true); }, show: state.activeMode !== null },
             { id: 'filters', icon: '🎨', label: 'Looks', active: showMobileFilters, onClick: () => { closeMobilePanels(); setShowMobileFilters(true); } },
-            { id: 'layers', icon: '📑', label: 'Stack', active: showMobileLayers, onClick: () => { closeMobilePanels(); setShowMobileLayers(true); }, show: state.layers.length > 1 },
+            { id: 'layers', icon: '📑', label: 'Stack', active: showMobileLayers, onClick: () => { closeMobilePanels(); setShowMobileLayers(true); } },
           ].filter(item => item.show !== false).map(item => (
             <button 
               key={item.id}
@@ -2339,23 +2153,13 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {(state.activeMode === EditMode.GENERATE || state.activeMode === EditMode.SOCIAL || state.activeMode === EditMode.POSTER || state.activeMode === EditMode.LOGO || state.activeMode === EditMode.COLLAGE) && (
+            {state.activeMode !== EditMode.COLLAGE && (
               <div className="space-y-4 pt-4 border-t border-slate-800">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                  {state.activeMode === EditMode.SOCIAL ? 'Framing Guidance' : 
-                   state.activeMode === EditMode.POSTER ? 'Event Details' :
-                   state.activeMode === EditMode.LOGO ? 'Brand Concept' :
-                   state.activeMode === EditMode.COLLAGE ? 'Style Guidance' : 'Instruction Prompt'}
-                </label>
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Instruction Prompt</label>
                 <textarea 
                   value={prompt} 
                   onChange={(e) => setPrompt(e.target.value)}
-                  placeholder={
-                    state.activeMode === EditMode.SOCIAL ? "Describe the framing..." :
-                    state.activeMode === EditMode.POSTER ? "Event details, headlines..." :
-                    state.activeMode === EditMode.LOGO ? "Business name, industry..." :
-                    state.activeMode === EditMode.COLLAGE ? "Describe the mood..." : "Describe your vision..."
-                  }
+                  placeholder="Describe your vision..."
                   className="w-full bg-slate-950/50 border border-slate-800 rounded-2xl px-5 py-4 text-xs focus:outline-none focus:border-fuchsia-500 transition-all resize-none shadow-inner"
                   rows={3}
                 />
@@ -2371,11 +2175,7 @@ const App: React.FC = () => {
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>
-                    {state.activeMode === EditMode.REMOVE ? 'Remove' : 
-                     (state.activeMode === EditMode.GENERATE || state.activeMode === EditMode.SOCIAL || state.activeMode === EditMode.POSTER || state.activeMode === EditMode.LOGO) ? 'Generate' : 
-                     state.activeMode === EditMode.COLLAGE ? 'Compose' : 'Apply'}
-                  </span>
+                  <span>{state.activeMode === EditMode.REMOVE ? 'Remove' : 'Apply Transformation'}</span>
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                 </>
               )}

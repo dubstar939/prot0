@@ -49,6 +49,10 @@ export interface ToolSettings {
   selectiveEdit: number;
   skyReplace: number;
   skinCleanup: number;
+  
+  // Export
+  exportFormat: 'image/jpeg' | 'image/png' | 'image/webp';
+  exportQuality: number;
 }
 
 export const DEFAULT_SETTINGS: ToolSettings = {
@@ -77,6 +81,8 @@ export const DEFAULT_SETTINGS: ToolSettings = {
   selectiveEdit: 0,
   skyReplace: 0,
   skinCleanup: 0,
+  exportFormat: 'image/jpeg',
+  exportQuality: 95,
 };
 
 export interface ImageState {

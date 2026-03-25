@@ -67,18 +67,33 @@ export default function App() {
   const [image, setImage] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>('AUTO');
   const [activeCategory, setActiveCategory] = useState<ToolCategory>('CORE');
-  const [settings, setSettings] = useState<ToolSettings>(DEFAULT_SETTINGS);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Performance: Use a ref to track the "start" of a slider interaction
+  // to prevent history pollution during rapid dragging.
+  const isDragging = React.useRef(false);
+  const dragStartSettings = React.useRef<ToolSettings | null>(null);
+
+  const [history, setHistory] = useState<{
+    past: ToolSettings[];
+    present: ToolSettings;
+    future: ToolSettings[];
+  }>({
+    past: [],
+    present: DEFAULT_SETTINGS,
+    future: [],
+  });
+
+  const settings = history.present;
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (file) {
-      // Performance Optimization: Use createObjectURL instead of FileReader for large images
       const objectUrl = URL.createObjectURL(file);
       setImage(objectUrl);
+      setHistory({ past: [], present: DEFAULT_SETTINGS, future: [] });
       
-      // Cleanup previous object URL if it exists to prevent memory leaks
       return () => URL.revokeObjectURL(objectUrl);
     }
   }, []);
@@ -90,17 +105,92 @@ export default function App() {
     noClick: !!image,
   } as any);
 
-  const updateSetting = (key: keyof ToolSettings, value: any) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-    // Simulate neural processing
-    if (mode === 'AUTO') {
+  // Performance: Optimized setting update. 
+  // We update the 'present' state immediately for UI responsiveness,
+  // but we only commit to 'past' history when the user finishes dragging.
+  const updateSetting = useCallback((key: keyof ToolSettings, value: any, commit: boolean = false) => {
+    setHistory(prev => {
+      const nextPresent = { ...prev.present, [key]: value };
+      
+      if (commit) {
+        // Commit the state that existed BEFORE the drag started
+        const stateToStore = dragStartSettings.current || prev.present;
+        dragStartSettings.current = null;
+        return {
+          past: [...prev.past, stateToStore],
+          present: nextPresent,
+          future: [],
+        };
+      }
+      
+      return {
+        ...prev,
+        present: nextPresent,
+      };
+    });
+    
+    if (mode === 'AUTO' && commit) {
       setIsProcessing(true);
-      setTimeout(() => setIsProcessing(false), 500);
+      setTimeout(() => setIsProcessing(false), 300);
     }
+  }, [mode]);
+
+  const handleSliderStart = useCallback(() => {
+    isDragging.current = true;
+    dragStartSettings.current = history.present;
+  }, [history.present]);
+
+  const handleSliderChange = useCallback((key: keyof ToolSettings, value: number) => {
+    updateSetting(key, value, false);
+  }, [updateSetting]);
+
+  const handleSliderEnd = useCallback((key: keyof ToolSettings, value: number) => {
+    isDragging.current = false;
+    updateSetting(key, value, true);
+  }, [updateSetting]);
+
+  const undo = useCallback(() => {
+    setHistory(prev => {
+      if (prev.past.length === 0) return prev;
+      const previous = prev.past[prev.past.length - 1];
+      const newPast = prev.past.slice(0, prev.past.length - 1);
+      return {
+        past: newPast,
+        present: previous,
+        future: [prev.present, ...prev.future],
+      };
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    setHistory(prev => {
+      if (prev.future.length === 0) return prev;
+      const next = prev.future[0];
+      const newFuture = prev.future.slice(1);
+      return {
+        past: [...prev.past, prev.present],
+        present: next,
+        future: newFuture,
+      };
+    });
+  }, []);
+
+  const clearImage = () => {
+    setImage(null);
+    setHistory({ past: [], present: DEFAULT_SETTINGS, future: [] });
   };
 
-  const resetSettings = () => {
-    setSettings(DEFAULT_SETTINGS);
+  const startBlankCanvas = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1920;
+    canvas.height = 1080;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      setImage(canvas.toDataURL('image/jpeg'));
+      setHistory({ past: [], present: DEFAULT_SETTINGS, future: [] });
+    }
   };
 
   const handleExport = async () => {
@@ -122,12 +212,10 @@ export default function App() {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       
-      // Set canvas size to match image
       canvas.width = img.width;
       canvas.height = img.height;
       
-      // Apply filters to context
-      const { exposure, contrast, saturation, bokeh, whiteBalance, sharpen } = settings;
+      const { exposure, contrast, saturation, bokeh, whiteBalance, sharpen, exportFormat, exportQuality } = settings;
       let filters = [];
       if (exposure !== 0) filters.push(`brightness(${100 + exposure}%)`);
       if (contrast !== 0) filters.push(`contrast(${100 + contrast}%)`);
@@ -138,7 +226,6 @@ export default function App() {
       
       ctx.filter = filters.join(' ');
       
-      // Handle transformations
       if (settings.straighten !== 0) {
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.rotate((settings.straighten * Math.PI) / 180);
@@ -147,18 +234,17 @@ export default function App() {
       
       ctx.drawImage(img, 0, 0);
       
-      // Trigger download using toBlob for better performance with large images
       canvas.toBlob((blob) => {
         if (!blob) return;
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.download = `prot0-neural-export-${Date.now()}.jpg`;
+        const ext = exportFormat.split('/')[1];
+        link.download = `prot0-neural-export-${Date.now()}.${ext}`;
         link.href = url;
         link.click();
         
-        // Cleanup
         setTimeout(() => URL.revokeObjectURL(url), 100);
-      }, 'image/jpeg', 0.95);
+      }, exportFormat, exportQuality / 100);
     } catch (error) {
       console.error('Export failed:', error);
     } finally {
@@ -185,22 +271,22 @@ export default function App() {
       case 'CORE':
         return (
           <div className="space-y-6">
-            <ControlGroup label="Exposure" value={settings.exposure} min={-100} max={100} onChange={(v) => updateSetting('exposure', v)} icon={Sun} />
-            <ControlGroup label="Contrast" value={settings.contrast} min={-100} max={100} onChange={(v) => updateSetting('contrast', v)} icon={Contrast} />
-            <ControlGroup label="Saturation" value={settings.saturation} min={-100} max={100} onChange={(v) => updateSetting('saturation', v)} icon={Droplets} />
-            <ControlGroup label="Sharpen" value={settings.sharpen} min={0} max={100} onChange={(v) => updateSetting('sharpen', v)} icon={Focus} />
-            <ControlGroup label="Noise Reduction" value={settings.noiseReduction} min={0} max={100} onChange={(v) => updateSetting('noiseReduction', v)} icon={Wind} />
-            <ControlGroup label="White Balance" value={settings.whiteBalance} min={-100} max={100} onChange={(v) => updateSetting('whiteBalance', v)} icon={Thermometer} />
+            <ControlGroup label="Exposure" value={settings.exposure} min={-100} max={100} onChange={(v) => handleSliderChange('exposure', v)} onEnd={(v) => handleSliderEnd('exposure', v)} onStart={handleSliderStart} icon={Sun} />
+            <ControlGroup label="Contrast" value={settings.contrast} min={-100} max={100} onChange={(v) => handleSliderChange('contrast', v)} onEnd={(v) => handleSliderEnd('contrast', v)} onStart={handleSliderStart} icon={Contrast} />
+            <ControlGroup label="Saturation" value={settings.saturation} min={-100} max={100} onChange={(v) => handleSliderChange('saturation', v)} onEnd={(v) => handleSliderEnd('saturation', v)} onStart={handleSliderStart} icon={Droplets} />
+            <ControlGroup label="Sharpen" value={settings.sharpen} min={0} max={100} onChange={(v) => handleSliderChange('sharpen', v)} onEnd={(v) => handleSliderEnd('sharpen', v)} onStart={handleSliderStart} icon={Focus} />
+            <ControlGroup label="Noise Reduction" value={settings.noiseReduction} min={0} max={100} onChange={(v) => handleSliderChange('noiseReduction', v)} onEnd={(v) => handleSliderEnd('noiseReduction', v)} onStart={handleSliderStart} icon={Wind} />
+            <ControlGroup label="White Balance" value={settings.whiteBalance} min={-100} max={100} onChange={(v) => handleSliderChange('whiteBalance', v)} onEnd={(v) => handleSliderEnd('whiteBalance', v)} onStart={handleSliderStart} icon={Thermometer} />
           </div>
         );
       case 'AUTOMOTIVE':
         return (
           <div className="space-y-6">
-            <ControlGroup label="Paint Gloss Boost" value={settings.paintGloss} min={0} max={100} onChange={(v) => updateSetting('paintGloss', v)} icon={Sparkles} />
-            <ControlGroup label="Wheel Detail" value={settings.wheelDetail} min={0} max={100} onChange={(v) => updateSetting('wheelDetail', v)} icon={Focus} />
-            <ControlGroup label="Night Meet Enhance" value={settings.nightEnhance} min={0} max={100} onChange={(v) => updateSetting('nightEnhance', v)} icon={Moon} />
-            <ControlGroup label="Reflection Clean" value={settings.reflectionClean} min={0} max={100} onChange={(v) => updateSetting('reflectionClean', v)} icon={Eye} />
-            <ControlGroup label="Showroom Finish" value={settings.showroomFinish} min={0} max={100} onChange={(v) => updateSetting('showroomFinish', v)} icon={Camera} />
+            <ControlGroup label="Paint Gloss Boost" value={settings.paintGloss} min={0} max={100} onChange={(v) => handleSliderChange('paintGloss', v)} onEnd={(v) => handleSliderEnd('paintGloss', v)} onStart={handleSliderStart} icon={Sparkles} />
+            <ControlGroup label="Wheel Detail" value={settings.wheelDetail} min={0} max={100} onChange={(v) => handleSliderChange('wheelDetail', v)} onEnd={(v) => handleSliderEnd('wheelDetail', v)} onStart={handleSliderStart} icon={Focus} />
+            <ControlGroup label="Night Meet Enhance" value={settings.nightEnhance} min={0} max={100} onChange={(v) => handleSliderChange('nightEnhance', v)} onEnd={(v) => handleSliderEnd('nightEnhance', v)} onStart={handleSliderStart} icon={Moon} />
+            <ControlGroup label="Reflection Clean" value={settings.reflectionClean} min={0} max={100} onChange={(v) => handleSliderChange('reflectionClean', v)} onEnd={(v) => handleSliderEnd('reflectionClean', v)} onStart={handleSliderStart} icon={Eye} />
+            <ControlGroup label="Showroom Finish" value={settings.showroomFinish} min={0} max={100} onChange={(v) => handleSliderChange('showroomFinish', v)} onEnd={(v) => handleSliderEnd('showroomFinish', v)} onStart={handleSliderStart} icon={Camera} />
           </div>
         );
       case 'STYLE':
@@ -209,7 +295,7 @@ export default function App() {
             {PRESETS.map(preset => (
               <button
                 key={preset.id}
-                onClick={() => updateSetting('preset', preset.id)}
+                onClick={() => updateSetting('preset', preset.id, true)}
                 className={cn(
                   "w-full text-left p-3 rounded-lg border transition-all duration-200",
                   settings.preset === preset.id 
@@ -228,23 +314,23 @@ export default function App() {
       case 'BACKGROUND':
         return (
           <div className="space-y-6">
-            <ControlGroup label="Background Simplify" value={settings.bgSimplify} min={0} max={100} onChange={(v) => updateSetting('bgSimplify', v)} icon={Eraser} />
-            <ControlGroup label="Subject Pop" value={settings.subjectPop} min={0} max={100} onChange={(v) => updateSetting('subjectPop', v)} icon={Maximize2} />
-            <ControlGroup label="Bokeh Boost" value={settings.bokeh} min={0} max={100} onChange={(v) => updateSetting('bokeh', v)} icon={Focus} />
+            <ControlGroup label="Background Simplify" value={settings.bgSimplify} min={0} max={100} onChange={(v) => handleSliderChange('bgSimplify', v)} onEnd={(v) => handleSliderEnd('bgSimplify', v)} onStart={handleSliderStart} icon={Eraser} />
+            <ControlGroup label="Subject Pop" value={settings.subjectPop} min={0} max={100} onChange={(v) => handleSliderChange('subjectPop', v)} onEnd={(v) => handleSliderEnd('subjectPop', v)} onStart={handleSliderStart} icon={Maximize2} />
+            <ControlGroup label="Bokeh Boost" value={settings.bokeh} min={0} max={100} onChange={(v) => handleSliderChange('bokeh', v)} onEnd={(v) => handleSliderEnd('bokeh', v)} onStart={handleSliderStart} icon={Focus} />
           </div>
         );
       case 'FRAMING':
         return (
           <div className="space-y-6">
-            <ControlGroup label="Straighten" value={settings.straighten} min={-45} max={45} onChange={(v) => updateSetting('straighten', v)} icon={Undo2} />
-            <ControlGroup label="Perspective" value={settings.perspective} min={-100} max={100} onChange={(v) => updateSetting('perspective', v)} icon={Maximize2} />
+            <ControlGroup label="Straighten" value={settings.straighten} min={-45} max={45} onChange={(v) => handleSliderChange('straighten', v)} onEnd={(v) => handleSliderEnd('straighten', v)} onStart={handleSliderStart} icon={Undo2} />
+            <ControlGroup label="Perspective" value={settings.perspective} min={-100} max={100} onChange={(v) => handleSliderChange('perspective', v)} onEnd={(v) => handleSliderEnd('perspective', v)} onStart={handleSliderStart} icon={Maximize2} />
             <div className="pt-4 border-t border-border">
               <span className="prot0-label">Aspect Ratio</span>
               <div className="grid grid-cols-2 gap-2 mt-2">
                 {['1:1', '4:5', '16:9', '9:16'].map(ratio => (
                   <button
                     key={ratio}
-                    onClick={() => updateSetting('crop', ratio)}
+                    onClick={() => updateSetting('crop', ratio, true)}
                     className={cn(
                       "py-2 rounded border text-xs font-mono",
                       settings.crop === ratio ? "bg-accent text-bg border-accent" : "bg-surface-hover border-border"
@@ -260,44 +346,61 @@ export default function App() {
       case 'REPAIR':
         return (
           <div className="space-y-6">
-            <ControlGroup label="Compression Cleanup" value={settings.compressionCleanup} min={0} max={100} onChange={(v) => updateSetting('compressionCleanup', v)} icon={Wind} />
-            <ControlGroup label="Low Quality Restore" value={settings.lowQualityRestore} min={0} max={100} onChange={(v) => updateSetting('lowQualityRestore', v)} icon={Zap} />
-            <ControlGroup label="Reflection Reduction" value={settings.reflectionReduction} min={0} max={100} onChange={(v) => updateSetting('reflectionReduction', v)} icon={Eye} />
-            <ControlGroup label="Glare Reduction" value={settings.glareReduction} min={0} max={100} onChange={(v) => updateSetting('glareReduction', v)} icon={Sun} />
+            <ControlGroup label="Compression Cleanup" value={settings.compressionCleanup} min={0} max={100} onChange={(v) => handleSliderChange('compressionCleanup', v)} onEnd={(v) => handleSliderEnd('compressionCleanup', v)} onStart={handleSliderStart} icon={Wind} />
+            <ControlGroup label="Low Quality Restore" value={settings.lowQualityRestore} min={0} max={100} onChange={(v) => handleSliderChange('lowQualityRestore', v)} onEnd={(v) => handleSliderEnd('lowQualityRestore', v)} onStart={handleSliderStart} icon={Zap} />
+            <ControlGroup label="Reflection Reduction" value={settings.reflectionReduction} min={0} max={100} onChange={(v) => handleSliderChange('reflectionReduction', v)} onEnd={(v) => handleSliderEnd('reflectionReduction', v)} onStart={handleSliderStart} icon={Eye} />
+            <ControlGroup label="Glare Reduction" value={settings.glareReduction} min={0} max={100} onChange={(v) => handleSliderChange('glareReduction', v)} onEnd={(v) => handleSliderEnd('glareReduction', v)} onStart={handleSliderStart} icon={Sun} />
           </div>
         );
       case 'MASKING':
         return (
           <div className="space-y-6">
-            <ControlGroup label="Selective Edit" value={settings.selectiveEdit} min={0} max={100} onChange={(v) => updateSetting('selectiveEdit', v)} icon={BoxSelect} />
-            <ControlGroup label="Sky Replace" value={settings.skyReplace} min={0} max={100} onChange={(v) => updateSetting('skyReplace', v)} icon={Cloud} />
-            <ControlGroup label="Skin Cleanup" value={settings.skinCleanup} min={0} max={100} onChange={(v) => updateSetting('skinCleanup', v)} icon={User} />
+            <ControlGroup label="Selective Edit" value={settings.selectiveEdit} min={0} max={100} onChange={(v) => handleSliderChange('selectiveEdit', v)} onEnd={(v) => handleSliderEnd('selectiveEdit', v)} onStart={handleSliderStart} icon={BoxSelect} />
+            <ControlGroup label="Sky Replace" value={settings.skyReplace} min={0} max={100} onChange={(v) => handleSliderChange('skyReplace', v)} onEnd={(v) => handleSliderEnd('skyReplace', v)} onStart={handleSliderStart} icon={Cloud} />
+            <ControlGroup label="Skin Cleanup" value={settings.skinCleanup} min={0} max={100} onChange={(v) => handleSliderChange('skinCleanup', v)} onEnd={(v) => handleSliderEnd('skinCleanup', v)} onStart={handleSliderStart} icon={User} />
           </div>
         );
       case 'EXPORT':
         return (
-          <div className="space-y-4">
-            <ExportButton 
-              label="Social Ready" 
-              icon={Share2} 
-              description="Optimized for Instagram, TikTok, etc." 
-              onClick={handleExport}
-              disabled={isProcessing}
-            />
-            <ExportButton 
-              label="Print Ready" 
-              icon={Printer} 
-              description="High-resolution, CMYK profile." 
-              onClick={handleExport}
-              disabled={isProcessing}
-            />
-            <ExportButton 
-              label="Web Optimized" 
-              icon={Globe} 
-              description="Fast loading, small file size." 
-              onClick={handleExport}
-              disabled={isProcessing}
-            />
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <span className="prot0-label">Format</span>
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {['image/jpeg', 'image/png', 'image/webp'].map(format => (
+                  <button
+                    key={format}
+                    onClick={() => updateSetting('exportFormat', format)}
+                    className={cn(
+                      "py-2 rounded border text-[10px] font-mono",
+                      settings.exportFormat === format ? "bg-accent text-bg border-accent" : "bg-surface-hover border-border"
+                    )}
+                  >
+                    {format.split('/')[1].toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {(settings.exportFormat === 'image/jpeg' || settings.exportFormat === 'image/webp') && (
+              <ControlGroup 
+                label="Export Quality" 
+                value={settings.exportQuality} 
+                min={1} 
+                max={100} 
+                onChange={(v) => updateSetting('exportQuality', v)} 
+                icon={Settings2} 
+              />
+            )}
+
+            <div className="pt-4 border-t border-border space-y-4">
+              <ExportButton 
+                label="Download Image" 
+                icon={Download} 
+                description={`Export as ${settings.exportFormat.split('/')[1].toUpperCase()}`} 
+                onClick={handleExport}
+                disabled={isProcessing}
+              />
+            </div>
           </div>
         );
       default:
@@ -322,55 +425,71 @@ export default function App() {
             )}
           >
             <cat.icon size={20} />
-            <div className="hidden md:block absolute left-full ml-4 px-2 py-1 bg-surface border border-border rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+            <div className="absolute left-full ml-4 px-2 py-1 bg-surface border border-border rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
               {cat.label}
             </div>
           </button>
         ))}
         <div className="hidden md:flex mt-auto flex-col gap-4">
-          <button className="p-3 text-accent-muted hover:text-accent"><Settings2 size={20} /></button>
+          <button className="p-3 text-accent-muted hover:text-accent group relative">
+            <Settings2 size={20} />
+            <div className="absolute left-full ml-4 px-2 py-1 bg-surface border border-border rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+              Settings
+            </div>
+          </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col relative overflow-hidden">
         {/* Top Header */}
-        <header className="h-14 border-b border-border flex items-center justify-between px-4 md:px-6 bg-surface/80 backdrop-blur-md z-20">
-          <div className="flex items-center gap-2 md:gap-4">
-            <span className="text-[10px] md:text-xs font-mono tracking-widest uppercase text-accent-muted truncate max-w-[120px] md:max-w-none">Prot0 Neural v1.0</span>
-            <div className="h-4 w-[1px] bg-border hidden sm:block" />
-            <div className="flex items-center gap-1 bg-bg rounded-full p-0.5 md:p-1 border border-border">
-              <button
-                onClick={() => setMode('AUTO')}
-                className={cn(
-                  "px-2 md:px-4 py-0.5 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold tracking-widest transition-all",
-                  mode === 'AUTO' ? "bg-accent text-bg" : "text-accent-muted hover:text-accent"
-                )}
-              >
-                AUTO
-              </button>
-              <button
-                onClick={() => setMode('PRO')}
-                className={cn(
-                  "px-2 md:px-4 py-0.5 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold tracking-widest transition-all",
-                  mode === 'PRO' ? "bg-accent text-bg" : "text-accent-muted hover:text-accent"
-                )}
-              >
-                PRO
-              </button>
+        <header className="h-14 border-b border-border flex items-center justify-between px-3 md:px-6 bg-surface/80 backdrop-blur-md z-20 shrink-0">
+          <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
+            <div className="flex md:hidden w-8 h-8 bg-accent text-bg rounded-lg items-center justify-center font-black text-sm shrink-0">
+              P0
+            </div>
+            <div className="flex flex-col overflow-hidden">
+              <h1 className="text-xs md:text-sm font-black tracking-tighter truncate uppercase leading-none">Prot0 Neural Suite</h1>
+              <span className="text-[8px] md:text-[10px] text-accent-muted font-mono uppercase tracking-widest truncate">v2.5 // Neural Engine</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-3">
-            <button onClick={resetSettings} className="prot0-button prot0-button-secondary py-1 px-2 md:py-1.5 md:px-3 text-[10px] md:text-xs">
-              <Trash2 size={12} className="md:w-3.5 md:h-3.5" /> <span className="hidden sm:inline">Reset</span>
+          <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
+            <button 
+              onClick={undo} 
+              disabled={history.past.length === 0}
+              className="prot0-button prot0-button-secondary p-1.5 md:py-1.5 md:px-3 text-[10px] md:text-xs disabled:opacity-30 group relative"
+            >
+              <Undo2 size={12} className="md:w-3.5 md:h-3.5" />
+              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                Undo
+              </div>
+            </button>
+            <button 
+              onClick={redo} 
+              disabled={history.future.length === 0}
+              className="prot0-button prot0-button-secondary p-1.5 md:py-1.5 md:px-3 text-[10px] md:text-xs disabled:opacity-30 group relative"
+            >
+              <Redo2 size={12} className="md:w-3.5 md:h-3.5" />
+              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                Redo
+              </div>
+            </button>
+            <button onClick={clearImage} className="prot0-button prot0-button-secondary p-1.5 md:py-1.5 md:px-3 text-[10px] md:text-xs group relative">
+              <Trash2 size={12} className="md:w-3.5 md:h-3.5" /> <span className="hidden sm:inline">Clear</span>
+              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                Clear Image
+              </div>
             </button>
             <button 
               onClick={handleExport}
               disabled={!image}
-              className="prot0-button prot0-button-primary py-1 px-3 md:py-1.5 md:px-4 text-[10px] md:text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              className="prot0-button prot0-button-primary py-1 px-2.5 md:py-1.5 md:px-4 text-[10px] md:text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed group relative"
             >
               <Download size={12} className="md:w-3.5 md:h-3.5" /> <span className="hidden sm:inline">Export</span>
+              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                Export Image
+              </div>
             </button>
           </div>
         </header>
@@ -402,9 +521,17 @@ export default function App() {
                 <h2 className="text-xl font-bold tracking-tight">Drop your masterpiece</h2>
                 <p className="text-accent-muted text-sm mt-1">RAW, JPEG, PNG supported. Neural engine ready.</p>
               </div>
-              <button className="prot0-button prot0-button-primary mx-auto mt-4 px-8">
-                Select File
-              </button>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-4">
+                <button className="prot0-button prot0-button-primary px-8">
+                  Select File
+                </button>
+                <button 
+                  onClick={startBlankCanvas}
+                  className="prot0-button prot0-button-secondary px-8"
+                >
+                  Blank Canvas
+                </button>
+              </div>
             </div>
           ) : (
             <div className="relative group max-w-full max-h-full">
@@ -420,7 +547,8 @@ export default function App() {
                   className="max-w-full max-h-[75vh] object-contain transition-all duration-500"
                   style={{ 
                     filter: cssFilters,
-                    transform: `rotate(${settings.straighten}deg) scale(${1 + Math.abs(settings.perspective) / 500})`
+                    transform: `rotate(${settings.straighten}deg) scale(${1 + Math.abs(settings.perspective) / 500})`,
+                    willChange: 'filter, transform' // Performance: Hardware acceleration
                   }}
                 />
                 
@@ -478,8 +606,11 @@ export default function App() {
           >
             <div className="p-6 flex items-center justify-between border-b border-border">
               <h3 className="text-xs font-bold tracking-widest uppercase">{activeCategory}</h3>
-              <button onClick={() => setSidebarOpen(false)} className="text-accent-muted hover:text-accent">
+              <button onClick={() => setSidebarOpen(false)} className="text-accent-muted hover:text-accent group relative">
                 <ChevronRight size={16} />
+                <div className="absolute bottom-full mb-2 right-0 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                  Close Sidebar
+                </div>
               </button>
             </div>
             
@@ -505,21 +636,27 @@ export default function App() {
       {!sidebarOpen && (
         <button 
           onClick={() => setSidebarOpen(true)}
-          className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-12 bg-surface border-l border-y border-border rounded-l-md flex items-center justify-center text-accent-muted hover:text-accent z-40"
+          className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-12 bg-surface border-l border-y border-border rounded-l-md flex items-center justify-center text-accent-muted hover:text-accent z-40 group relative"
         >
           <ChevronLeft size={16} />
+          <div className="absolute bottom-full mb-2 right-0 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+            Open Sidebar
+          </div>
         </button>
       )}
     </div>
   );
 }
 
-const ControlGroup = React.memo(({ label, value, min, max, onChange, icon: Icon }: { label: string, value: number, min: number, max: number, onChange: (v: number) => void, icon: any }) => {
+const ControlGroup = React.memo(({ label, value, min, max, onChange, onStart, onEnd, icon: Icon }: { label: string, value: number, min: number, max: number, onChange: (v: number) => void, onStart?: () => void, onEnd?: (v: number) => void, icon: any }) => {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 group relative">
           <Icon size={14} className="text-accent-muted" />
+          <div className="absolute bottom-full mb-2 left-0 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+            {label}
+          </div>
           <span className="prot0-label mb-0">{label}</span>
         </div>
         <span className="text-[10px] font-mono text-accent">{value > 0 ? `+${value}` : value}</span>
@@ -529,7 +666,11 @@ const ControlGroup = React.memo(({ label, value, min, max, onChange, icon: Icon 
         min={min} 
         max={max} 
         value={value} 
+        onMouseDown={onStart}
+        onTouchStart={onStart}
         onChange={(e) => onChange(parseInt(e.target.value))}
+        onMouseUp={(e) => onEnd?.(parseInt((e.target as HTMLInputElement).value))}
+        onTouchEnd={(e) => onEnd?.(parseInt((e.target as HTMLInputElement).value))}
         className="prot0-slider"
       />
     </div>
@@ -544,8 +685,11 @@ const ExportButton = React.memo(({ label, icon: Icon, description, onClick, disa
       className="w-full group text-left p-4 rounded-xl bg-surface-hover border border-border hover:border-accent-muted transition-all duration-300 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
     >
       <div className="flex items-center gap-3 mb-1">
-        <div className="p-2 rounded-lg bg-bg text-accent-muted group-hover:text-accent transition-colors">
+        <div className="p-2 rounded-lg bg-bg text-accent-muted group-hover:text-accent transition-colors relative group/icon">
           <Icon size={18} />
+          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover/icon:opacity-100 pointer-events-none transition-opacity z-50">
+            {label}
+          </div>
         </div>
         <span className="font-bold text-sm tracking-tight">{label}</span>
       </div>

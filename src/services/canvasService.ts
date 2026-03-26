@@ -39,45 +39,57 @@ export const mergeLayersToDataUrl = async (
   width: number,
   height: number
 ): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      reject(new Error("Failed to initialize canvas context."));
-      return;
-    }
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
+  if (!ctx) throw new Error("Failed to initialize canvas context.");
 
-    canvas.width = width;
-    canvas.height = height;
+  canvas.width = width;
+  canvas.height = height;
 
-    const visibleLayers = [...layers].reverse().filter(l => l.isVisible);
-    if (visibleLayers.length === 0) {
-      resolve(canvas.toDataURL('image/png'));
-      return;
-    }
+  const visibleLayers = [...layers].reverse().filter(l => l.isVisible);
+  if (visibleLayers.length === 0) return canvas.toDataURL('image/png');
 
-    let loadedCount = 0;
-    visibleLayers.forEach(layer => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        ctx.save();
-        ctx.globalAlpha = (layer.opacity ?? 100) / 100;
-        ctx.globalCompositeOperation = getCanvasCompositeOp(layer.blendMode);
-        if (layer.cssFilter) ctx.filter = layer.cssFilter;
-        
-        ctx.drawImage(img, 0, 0, width, height);
-        ctx.restore();
-        
-        loadedCount++;
-        if (loadedCount === visibleLayers.length) {
-          resolve(canvas.toDataURL('image/png'));
-        }
-      };
-      img.onerror = () => reject(new Error(`Failed to load layer image: ${layer.name}`));
-      img.src = layer.url;
-    });
+  /**
+   * REASONING:
+   * 1. Parallel loading with Promise.all avoids sequential bottlenecks.
+   * 2. createImageBitmap decodes images off-main-thread, preventing UI jank.
+   * 3. Drawing bitmaps is significantly faster than drawing HTMLImageElements.
+   */
+  const layerBitmaps = await Promise.all(
+    visibleLayers.map(async (layer) => {
+      try {
+        const response = await fetch(layer.url, { mode: 'cors' });
+        const blob = await response.blob();
+        const bitmap = await createImageBitmap(blob);
+        return { layer, bitmap };
+      } catch (e) {
+        console.warn(`Failed to load layer: ${layer.name}`, e);
+        return null;
+      }
+    })
+  );
+
+  layerBitmaps.forEach((item) => {
+    if (!item) return;
+    const { layer, bitmap } = item;
+    
+    ctx.save();
+    ctx.globalAlpha = (layer.opacity ?? 100) / 100;
+    ctx.globalCompositeOperation = getCanvasCompositeOp(layer.blendMode);
+    if (layer.cssFilter) ctx.filter = layer.cssFilter;
+    
+    // Draw using the optimized bitmap
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    ctx.restore();
+    
+    // Explicitly close bitmap to free memory immediately
+    bitmap.close();
   });
+
+  const result = canvas.toDataURL('image/png');
+  canvas.width = 0; // Trigger memory cleanup
+  canvas.height = 0;
+  return result;
 };
 
 /**

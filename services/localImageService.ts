@@ -18,31 +18,31 @@ export const applyFiltersToImage = async (
   imageUrl: string,
   filterString: string
 ): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    
-    image.onload = () => {
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      
-      if (!context) {
-        reject(new Error("Failed to initialize canvas context."));
-        return;
-      }
+  const response = await fetch(imageUrl, { mode: 'cors' });
+  const blob = await response.blob();
+  const bitmap = await createImageBitmap(blob);
 
-      canvas.width = image.naturalWidth;
-      canvas.height = image.naturalHeight;
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d', { alpha: true, desynchronized: true });
+  
+  if (!context) {
+    bitmap.close();
+    throw new Error("Failed to initialize canvas context.");
+  }
 
-      context.filter = filterString;
-      context.drawImage(image, 0, 0);
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
 
-      resolve(canvas.toDataURL('image/png'));
-    };
+  context.filter = filterString;
+  context.drawImage(bitmap, 0, 0);
 
-    image.onerror = () => reject(new Error("Failed to load image for filter application."));
-    image.src = imageUrl;
-  });
+  const result = canvas.toDataURL('image/png');
+  
+  bitmap.close();
+  canvas.width = 0;
+  canvas.height = 0;
+  
+  return result;
 };
 
 /**
@@ -122,7 +122,7 @@ export const createCollage = async (
   layout: 'grid' | 'mosaic' | 'triptych' | 'stack' | 'freestyle'
 ): Promise<string> => {
   const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
+  const context = canvas.getContext('2d', { alpha: true, desynchronized: true });
   
   if (!context) throw new Error("Canvas context initialization failed.");
 
@@ -132,17 +132,20 @@ export const createCollage = async (
   context.fillStyle = '#020617'; // Dark slate background
   context.fillRect(0, 0, canvas.width, canvas.height);
 
-  const loadedImages = await Promise.all(
-    imageUrls.map(src => new Promise<HTMLImageElement>((resolve, reject) => {
-      const image = new Image();
-      image.crossOrigin = "anonymous";
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error(`Failed to load image: ${src}`));
-      image.src = src;
-    }))
-  );
+  const bitmaps = await Promise.all(
+    imageUrls.map(async (src) => {
+      try {
+        const response = await fetch(src, { mode: 'cors' });
+        const blob = await response.blob();
+        return await createImageBitmap(blob);
+      } catch (e) {
+        console.warn(`Failed to load image: ${src}`, e);
+        return null;
+      }
+    })
+  ).then(results => results.filter((b): b is ImageBitmap => b !== null));
 
-  const imageCount = loadedImages.length;
+  const imageCount = bitmaps.length;
   const padding = 40;
 
   if (layout === 'grid' || layout === 'mosaic') {
@@ -151,42 +154,44 @@ export const createCollage = async (
     const cellWidth = (canvas.width - (columns + 1) * padding) / columns;
     const cellHeight = (canvas.height - (rows + 1) * padding) / rows;
 
-    loadedImages.forEach((image, index) => {
+    bitmaps.forEach((bitmap, index) => {
       const col = index % columns;
       const row = Math.floor(index / columns);
       const x = padding + col * (cellWidth + padding);
       const y = padding + row * (cellHeight + padding);
 
-      const imageRatio = image.naturalWidth / image.naturalHeight;
+      const imageRatio = bitmap.width / bitmap.height;
       const cellRatio = cellWidth / cellHeight;
       let sw, sh, sx, sy;
 
       if (imageRatio > cellRatio) {
-        sh = image.naturalHeight;
+        sh = bitmap.height;
         sw = sh * cellRatio;
-        sx = (image.naturalWidth - sw) / 2;
+        sx = (bitmap.width - sw) / 2;
         sy = 0;
       } else {
-        sw = image.naturalWidth;
+        sw = bitmap.width;
         sh = sw / cellRatio;
         sx = 0;
-        sy = (image.naturalHeight - sh) / 2;
+        sy = (bitmap.height - sh) / 2;
       }
 
-      context.drawImage(image, sx, sy, sw, sh, x, y, cellWidth, cellHeight);
+      context.drawImage(bitmap, sx, sy, sw, sh, x, y, cellWidth, cellHeight);
+      bitmap.close();
     });
   } else if (layout === 'triptych') {
     const cellWidth = (canvas.width - (imageCount + 1) * padding) / imageCount;
     const cellHeight = canvas.height - 2 * padding;
 
-    loadedImages.forEach((image, index) => {
+    bitmaps.forEach((bitmap, index) => {
       const x = padding + index * (cellWidth + padding);
       const y = padding;
-      context.drawImage(image, x, y, cellWidth, cellHeight);
+      context.drawImage(bitmap, x, y, cellWidth, cellHeight);
+      bitmap.close();
     });
   } else {
     // Stack or Freestyle: Randomized placement with shadows
-    loadedImages.forEach((image) => {
+    bitmaps.forEach((bitmap) => {
       const size = canvas.width * 0.6;
       const x = Math.random() * (canvas.width - size);
       const y = Math.random() * (canvas.height - size);
@@ -205,12 +210,16 @@ export const createCollage = async (
       context.fillStyle = 'white';
       context.fillRect(-size / 2 - 10, -size / 2 - 10, size + 20, size + 20);
 
-      context.drawImage(image, -size / 2, -size / 2, size, size);
+      context.drawImage(bitmap, -size / 2, -size / 2, size, size);
       context.restore();
+      bitmap.close();
     });
   }
 
-  return canvas.toDataURL('image/png');
+  const result = canvas.toDataURL('image/png');
+  canvas.width = 0;
+  canvas.height = 0;
+  return result;
 };
 
 /**

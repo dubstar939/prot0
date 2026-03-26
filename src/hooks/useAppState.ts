@@ -129,7 +129,10 @@ export const useAppState = () => {
    */
   const addToHistory = useCallback((layers: Layer[], activeLayerId: string | null, actionLabel?: string, groups: LayerGroup[] = state.groups) => {
     setState(prev => {
-      const slicedHistory = prev.history.slice(prev.historyIndex);
+      // REASONING: Limiting history size prevents memory leaks and performance degradation over time.
+      const MAX_HISTORY = 50;
+      const slicedHistory = prev.history.slice(prev.historyIndex).slice(0, MAX_HISTORY - 1);
+      
       const newItem: HistoryItem = { 
         id: Date.now().toString(), 
         layers, 
@@ -138,6 +141,7 @@ export const useAppState = () => {
         timestamp: Date.now(), 
         prompt: actionLabel 
       };
+      
       return { 
         ...prev, 
         history: [newItem, ...slicedHistory], 

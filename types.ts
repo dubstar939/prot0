@@ -27,6 +27,17 @@ export interface Layer {
   y?: number;
   scale?: number;
   rotation?: number;
+  width?: number;
+  height?: number;
+  filters?: {
+    brightness: number;
+    contrast: number;
+    saturation: number;
+    'hue-rotate': number;
+    blur: number;
+    sepia: number;
+    grayscale: number;
+  };
 }
 
 export interface LayerGroup {

@@ -530,6 +530,13 @@ export const useAppState = () => {
     addToHistory(newLayers, layerId, 'Reset to Original');
   }, [state.layers, addToHistory]);
 
+  const toggleLayerVisibility = useCallback((id: string) => {
+    const newLayers = state.layers.map(l => 
+      l.id === id ? { ...l, isVisible: !l.isVisible } : l
+    );
+    addToHistory(newLayers, state.activeLayerId, 'Toggle Visibility');
+  }, [state.layers, state.activeLayerId, addToHistory]);
+
   return {
     state,
     setState,
@@ -631,6 +638,7 @@ export const useAppState = () => {
     handleDrop,
     duplicateLayer,
     flattenLayers,
+    toggleLayerVisibility,
     setIsProcessing: (isProcessing: boolean) => setState(prev => ({ ...prev, isProcessing })),
     setError: (error: string | null) => setState(prev => ({ ...prev, error }))
   };

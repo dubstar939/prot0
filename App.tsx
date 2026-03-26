@@ -1,722 +1,1273 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useEffect, useCallback } from 'react';
 import { 
-  Camera, 
+  Plus, 
+  Sparkles, 
   Layers, 
-  Zap, 
-  Settings2, 
-  Car, 
-  Palette, 
-  Image as ImageIcon, 
-  Crop, 
-  Wrench, 
-  BoxSelect, 
   Download, 
   Undo2, 
   Redo2, 
-  Maximize2, 
+  Trash2, 
+  Image as ImageIcon, 
+  Wand2, 
+  Scissors, 
+  Palette, 
+  Crop, 
+  Layout, 
+  Maximize, 
+  Share2, 
   ChevronRight, 
-  ChevronLeft,
-  Sliders,
-  Sun,
-  Contrast,
-  Droplets,
-  Focus,
-  Wind,
-  Thermometer,
-  Sparkles,
-  Moon,
-  Eye,
-  Eraser,
-  Cloud,
-  User,
-  Share2,
-  Printer,
-  Globe,
-  Trash2
+  ChevronLeft, 
+  Menu, 
+  X, 
+  Settings, 
+  HelpCircle, 
+  Zap, 
+  Monitor, 
+  Smartphone, 
+  Grid, 
+  Type, 
+  History, 
+  Save, 
+  Search, 
+  Filter, 
+  Sliders, 
+  Aperture, 
+  Box, 
+  Compass, 
+  Dna, 
+  Feather, 
+  Focus, 
+  Ghost, 
+  Layers2, 
+  Move, 
+  Orbit, 
+  Paintbrush, 
+  Pipette, 
+  RotateCcw, 
+  Scan, 
+  Shapes, 
+  Stamp, 
+  Sticker, 
+  Sun, 
+  Target, 
+  Wind, 
+  Workflow, 
+  Eye, 
+  EyeOff, 
+  MoreVertical, 
+  Copy, 
+  Lock, 
+  Unlock, 
+  Group, 
+  ChevronUp, 
+  ChevronDown, 
+  ArrowUpRight, 
+  Check, 
+  AlertCircle, 
+  Loader2, 
+  Upload, 
+  Camera, 
+  Video, 
+  Mic, 
+  Music, 
+  Globe, 
+  MapPin, 
+  Link as LinkIcon, 
+  Mail, 
+  Facebook, 
+  Twitter, 
+  Instagram, 
+  Linkedin, 
+  Github, 
+  Youtube, 
+  Twitch, 
+  Slack, 
+  MessageSquare, 
+  Send, 
+  Paperclip, 
+  Smile, 
+  Mic2, 
+  Phone, 
+  VideoOff, 
+  MicOff, 
+  Volume2, 
+  VolumeX, 
+  Play, 
+  Pause, 
+  SkipBack, 
+  SkipForward, 
+  Repeat, 
+  Shuffle, 
+  List, 
+  Music2, 
+  Disc, 
+  Radio, 
+  Headphones, 
+  Cast, 
+  Bluetooth, 
+  Wifi, 
+  Battery, 
+  Clock, 
+  Calendar, 
+  Bell, 
+  Mail as MailIcon, 
+  Star, 
+  Heart, 
+  Bookmark, 
+  Share, 
+  ExternalLink, 
+  Download as DownloadIcon, 
+  RefreshCw, 
+  Search as SearchIcon, 
+  Filter as FilterIcon, 
+  Sliders as SlidersIcon, 
+  Settings as SettingsIcon, 
+  User, 
+  Users, 
+  Home, 
+  Layout as LayoutIcon, 
+  File, 
+  Folder, 
+  Archive, 
+  Cloud, 
+  Database, 
+  Server, 
+  Terminal, 
+  Code, 
+  Cpu, 
+  HardDrive, 
+  MousePointer2, 
+  Touchpad, 
+  Keyboard, 
+  Printer, 
+  Tv, 
+  Watch, 
+  Smartphone as SmartphoneIcon, 
+  Tablet, 
+  Laptop, 
+  Monitor as MonitorIcon, 
+  CreditCard, 
+  Wallet, 
+  ShoppingBag, 
+  ShoppingCart, 
+  Tag, 
+  Gift, 
+  Trophy, 
+  Medal, 
+  Flag, 
+  Map, 
+  Pin, 
+  Navigation, 
+  Compass as CompassIcon, 
+  Anchor, 
+  Ship, 
+  Plane, 
+  Train, 
+  Bus, 
+  Car, 
+  Bike, 
+  Footprints, 
+  Moon, 
+  CloudRain, 
+  CloudLightning, 
+  CloudSnow, 
+  CloudFog, 
+  Wind as WindIcon, 
+  Droplets, 
+  Thermometer, 
+  Sunrise, 
+  Sunset, 
+  Mountain, 
+  Trees, 
+  Flower2, 
+  Leaf, 
+  Flame, 
+  Zap as ZapIcon, 
+  Skull, 
+  Ghost as GhostIcon, 
+  Eye as EyeIcon, 
+  Brain, 
+  Activity, 
+  Stethoscope, 
+  HeartPulse, 
+  Microscope, 
+  FlaskConical, 
+  Atom, 
+  Dna as DnaIcon, 
+  Infinity, 
+  Pi, 
+  Sigma, 
+  Variable, 
+  FunctionSquare, 
+  Binary, 
+  Hash, 
+  Percent, 
+  Divide, 
+  X as XIcon, 
+  Minus, 
+  Plus as PlusIcon, 
+  Equal, 
+  ChevronRight as ChevronRightIcon, 
+  ChevronLeft as ChevronLeftIcon, 
+  ChevronUp as ChevronUpIcon, 
+  ChevronDown as ChevronDownIcon, 
+  ChevronsRight, 
+  ChevronsLeft, 
+  ChevronsUp, 
+  ChevronsDown, 
+  ArrowRight, 
+  ArrowLeft, 
+  ArrowUp, 
+  ArrowDown, 
+  ArrowUpRight as ArrowUpRightIcon, 
+  ArrowUpLeft, 
+  ArrowDownRight, 
+  ArrowDownLeft, 
+  CornerRightUp, 
+  CornerRightDown, 
+  CornerLeftUp, 
+  CornerLeftDown, 
+  CornerUpRight, 
+  CornerUpLeft, 
+  CornerDownRight, 
+  CornerDownLeft, 
+  Move as MoveIcon, 
+  Maximize2, 
+  Minimize2, 
+  ZoomIn, 
+  ZoomOut, 
+  RotateCw, 
+  RotateCcw as RotateCcwIcon, 
+  FlipHorizontal, 
+  FlipVertical, 
+  Crop as CropIcon, 
+  Grid as GridIcon, 
+  Columns, 
+  Rows, 
+  Square, 
+  Circle, 
+  Triangle, 
+  Pentagon, 
+  Hexagon, 
+  Octagon, 
+  Star as StarIcon, 
+  Heart as HeartIcon, 
+  Cloud as CloudIcon, 
+  Zap as ZapIcon2, 
+  Sun as SunIcon, 
+  Moon as MoonIcon, 
+  Droplet, 
+  Flame as FlameIcon, 
+  Leaf as LeafIcon, 
+  Flower as FlowerIcon, 
+  TreePine, 
+  Mountain as MountainIcon, 
+  Waves, 
+  Wind as WindIcon2, 
+  Snowflake, 
+  Umbrella, 
+  Briefcase, 
+  GraduationCap, 
+  Book, 
+  BookOpen, 
+  Library, 
+  Pencil, 
+  Eraser, 
+  Brush, 
+  Palette as PaletteIcon, 
+  PaintBucket, 
+  SprayCan, 
+  PenTool, 
+  MousePointer, 
+  Grab, 
+  Hand, 
+  Pointer, 
+  Scissors as ScissorsIcon, 
+  Sticker as StickerIcon, 
+  Stamp as StampIcon, 
+  Type as TypeIcon, 
+  Italic, 
+  Bold, 
+  Underline, 
+  Strikethrough, 
+  AlignLeft, 
+  AlignCenter, 
+  AlignRight, 
+  AlignJustify, 
+  List as ListIcon, 
+  ListOrdered, 
+  CheckSquare, 
+  CheckCircle, 
+  XCircle, 
+  AlertTriangle, 
+  Info, 
+  HelpCircle as HelpCircleIcon, 
+  MessageCircle, 
+  MessageSquare as MessageSquareIcon, 
+  Phone as PhoneIcon, 
+  Video as VideoIcon, 
+  Mail as MailIcon2, 
+  Share2 as Share2Icon, 
+  Link, 
+  ExternalLink as ExternalLinkIcon, 
+  Eye as EyeIcon2, 
+  EyeOff as EyeOffIcon, 
+  Lock as LockIcon, 
+  Unlock as UnlockIcon, 
+  Key, 
+  Shield, 
+  ShieldCheck, 
+  ShieldAlert, 
+  ShieldOff, 
+  Fingerprint, 
+  Scan as ScanIcon, 
+  QrCode, 
+  Barcode, 
+  Bluetooth as BluetoothIcon, 
+  Wifi as WifiIcon, 
+  Cast as CastIcon, 
+  Tv as TvIcon, 
+  Speaker, 
+  Mic as MicIcon2, 
+  Headphones as HeadphonesIcon, 
+  Music as MusicIcon, 
+  Play as PlayIcon, 
+  Pause as PauseIcon, 
+  StopCircle, 
+  FastForward, 
+  Rewind, 
+  SkipForward as SkipForwardIcon, 
+  SkipBack as SkipBackIcon, 
+  Repeat as RepeatIcon, 
+  Shuffle as ShuffleIcon, 
+  Volume1, 
+  Volume2 as Volume2Icon, 
+  VolumeX as VolumeXIcon, 
+  Clock as ClockIcon, 
+  Calendar as CalendarIcon, 
+  Timer, 
+  History as HistoryIcon, 
+  Save as SaveIcon, 
+  Download as DownloadIcon2, 
+  Upload as UploadIcon, 
+  Cloud as CloudIcon2, 
+  CloudUpload, 
+  CloudDownload, 
+  HardDrive as HardDriveIcon, 
+  Database as DatabaseIcon, 
+  Server as ServerIcon, 
+  Cpu as CpuIcon, 
+  Terminal as TerminalIcon, 
+  Code as CodeIcon, 
+  Bug, 
+  Activity as ActivityIcon, 
+  HeartPulse as HeartPulseIcon, 
+  Stethoscope as StethoscopeIcon, 
+  Thermometer as ThermometerIcon, 
+  Microscope as MicroscopeIcon, 
+  FlaskConical as FlaskConicalIcon, 
+  Atom as AtomIcon, 
+  Dna as DnaIcon2, 
+  Infinity as InfinityIcon, 
+  Pi as PiIcon, 
+  Sigma as SigmaIcon, 
+  Variable as VariableIcon, 
+  FunctionSquare as FunctionSquareIcon, 
+  Binary as BinaryIcon, 
+  Hash as HashIcon, 
+  Percent as PercentIcon, 
+  Divide as DivideIcon, 
+  X as XIcon2, 
+  Minus as MinusIcon, 
+  Plus as PlusIcon2, 
+  Equal as EqualIcon
 } from 'lucide-react';
-import { Mode, ToolCategory, ToolSettings, DEFAULT_SETTINGS } from './types';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { motion, AnimatePresence } from 'motion/react';
+import { GoogleGenAI } from "@google/genai";
+import { 
+  EditMode, 
+  Layer, 
+  LayerGroup, 
+  TargetResolution, 
+  FilterPreset, 
+  SocialPreset, 
+  BlendMode 
+} from './types';
+import { 
+  FILTER_CATEGORIES, 
+  PRESET_FILTERS, 
+  STYLE_PRESETS, 
+  SOCIAL_PRESETS, 
+  POSTER_PRESETS, 
+  LOGO_PRESETS, 
+  COLLAGE_LAYOUTS, 
+  BLEND_MODES, 
+  ENHANCE_METHODS 
+} from './src/constants';
+import { useAppState } from './src/hooks/useAppState';
+import { Logo } from './src/components/Logo';
+import { CropOverlay } from './src/components/CropOverlay';
+import { TransformOverlay } from './src/components/TransformOverlay';
+import LayerPanelContent from './src/components/LayerPanelContent';
+import MobileBottomSheet from './src/components/MobileBottomSheet';
+import { 
+  applyFiltersToImage, 
+  resizeImageToAspectRatio, 
+  createCollage, 
+  cropImage 
+} from './services/localImageService';
+import { exportComposition, mergeLayersToDataUrl } from './src/services/canvasService';
 
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+const App: React.FC = () => {
+  const {
+    state,
+    setState,
+    prompt,
+    setPrompt,
+    showExportModal,
+    setShowExportModal,
+    showLayers,
+    setShowLayers,
+    showMobileLayers,
+    setShowMobileLayers,
+    showMobileTools,
+    setShowMobileTools,
+    showMobileSuite,
+    setShowMobileSuite,
+    showMobileFilters,
+    setShowMobileFilters,
+    showMobileControls,
+    setShowMobileControls,
+    showGuide,
+    setShowGuide,
+    deferredPrompt,
+    setDeferredPrompt,
+    exportConfig,
+    setExportConfig,
+    brushSize,
+    setBrushSize,
+    isBrushing,
+    setIsBrushing,
+    brushHistory,
+    setBrushHistory,
+    brushHistoryIndex,
+    setBrushHistoryIndex,
+    brightness,
+    setBrightness,
+    saturation,
+    setSaturation,
+    hue,
+    setHue,
+    blur,
+    setBlur,
+    activeEnhanceMethod,
+    setActiveEnhanceMethod,
+    enhanceIntensity,
+    setEnhanceIntensity,
+    isComparing,
+    setIsComparing,
+    activeStyle,
+    setActiveStyle,
+    activeSocial,
+    setActiveSocial,
+    activePoster,
+    setActivePoster,
+    activeLogo,
+    setActiveLogo,
+    activeCollageLayout,
+    setActiveCollageLayout,
+    filterCategory,
+    setFilterCategory,
+    cropRect,
+    setCropRect,
+    cropBounds,
+    setCropBounds,
+    draggedLayerId,
+    setDraggedLayerId,
+    dragOverLayerId,
+    setDragOverLayerId,
+    selectedLayerIds,
+    setSelectedLayerIds,
+    rawParams,
+    setRawParams,
+    imageRef,
+    canvasRef,
+    brushCanvasRef,
+    fileInputRef,
+    workspaceRef,
+    addToHistory,
+    undo,
+    redo,
+    deleteLayer,
+    moveLayer,
+    updateLayer,
+    updateSelectedLayer,
+    setActiveLayerId,
+    toggleLayerSelection,
+    groupSelectedLayers,
+    ungroupLayer,
+    createGroup,
+    toggleGroupCollapse,
+    toggleAllGroups,
+    resetColorLab,
+    resetRawParams,
+    closeMobilePanels,
+    handleModeSwitch,
+    resetLayerToOriginal,
+    handleDragStart,
+    handleDragEnd,
+    handleDragOver,
+    handleDrop,
+    duplicateLayer,
+    flattenLayers,
+    setIsProcessing,
+    setError
+  } = useAppState();
 
-const TOOL_CATEGORIES: { id: ToolCategory; label: string; icon: any }[] = [
-  { id: 'CORE', label: 'Core Tools', icon: Sliders },
-  { id: 'AUTOMOTIVE', label: 'Automotive', icon: Car },
-  { id: 'STYLE', label: 'Style Presets', icon: Palette },
-  { id: 'BACKGROUND', label: 'Subject/BG', icon: ImageIcon },
-  { id: 'FRAMING', label: 'Framing', icon: Crop },
-  { id: 'REPAIR', label: 'Repair/Restore', icon: Wrench },
-  { id: 'MASKING', label: 'Masking', icon: BoxSelect },
-  { id: 'EXPORT', label: 'Export', icon: Download },
-];
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const PRESETS = [
-  { id: 'coastal_minimalist', label: 'Coastal Minimalist', description: 'Cool whites, soft blues, matte highlights.' },
-  { id: 'high_contrast_street', label: 'High Contrast Street', description: 'Bold contrast and crisp micro-detail.' },
-  { id: 'film_939', label: 'Film 939', description: 'Warm tones, subtle grain, soft halation.' },
-  { id: 'matte_fade', label: 'Matte Fade', description: 'Soft matte finish with lifted shadows.' },
-  { id: 'vivid_pop', label: 'Vivid Pop', description: 'Natural boost to vibrancy and clarity.' },
-];
+  const currentActiveLayer = state.layers.find(l => l.id === state.activeLayerId);
 
-export default function App() {
-  const [image, setImage] = useState<string | null>(null);
-  const [mode, setMode] = useState<Mode>('AUTO');
-  const [activeCategory, setActiveCategory] = useState<ToolCategory>('CORE');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false);
-  
-  // Performance: Use a ref to track the "start" of a slider interaction
-  // to prevent history pollution during rapid dragging.
-  const isDragging = React.useRef(false);
-  const dragStartSettings = React.useRef<ToolSettings | null>(null);
-
-  const [history, setHistory] = useState<{
-    past: ToolSettings[];
-    present: ToolSettings;
-    future: ToolSettings[];
-  }>({
-    past: [],
-    present: DEFAULT_SETTINGS,
-    future: [],
-  });
-
-  const settings = history.present;
-
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (file) {
-      const objectUrl = URL.createObjectURL(file);
-      setImage(objectUrl);
-      setHistory({ past: [], present: DEFAULT_SETTINGS, future: [] });
-      
-      return () => URL.revokeObjectURL(objectUrl);
-    }
-  }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'image/*': [] },
-    multiple: false,
-    noClick: !!image,
-  } as any);
-
-  // Performance: Optimized setting update. 
-  // We update the 'present' state immediately for UI responsiveness,
-  // but we only commit to 'past' history when the user finishes dragging.
-  const updateSetting = useCallback((key: keyof ToolSettings, value: any, commit: boolean = false) => {
-    setHistory(prev => {
-      const nextPresent = { ...prev.present, [key]: value };
-      
-      if (commit) {
-        // Commit the state that existed BEFORE the drag started
-        const stateToStore = dragStartSettings.current || prev.present;
-        dragStartSettings.current = null;
-        return {
-          past: [...prev.past, stateToStore],
-          present: nextPresent,
-          future: [],
-        };
-      }
-      
-      return {
-        ...prev,
-        present: nextPresent,
-      };
-    });
-    
-    if (mode === 'AUTO' && commit) {
-      setIsProcessing(true);
-      setTimeout(() => setIsProcessing(false), 300);
-    }
-  }, [mode]);
-
-  const handleSliderStart = useCallback(() => {
-    isDragging.current = true;
-    dragStartSettings.current = history.present;
-  }, [history.present]);
-
-  const handleSliderChange = useCallback((key: keyof ToolSettings, value: number) => {
-    updateSetting(key, value, false);
-  }, [updateSetting]);
-
-  const handleSliderEnd = useCallback((key: keyof ToolSettings, value: number) => {
-    isDragging.current = false;
-    updateSetting(key, value, true);
-  }, [updateSetting]);
-
-  const undo = useCallback(() => {
-    setHistory(prev => {
-      if (prev.past.length === 0) return prev;
-      const previous = prev.past[prev.past.length - 1];
-      const newPast = prev.past.slice(0, prev.past.length - 1);
-      return {
-        past: newPast,
-        present: previous,
-        future: [prev.present, ...prev.future],
-      };
-    });
-  }, []);
-
-  const redo = useCallback(() => {
-    setHistory(prev => {
-      if (prev.future.length === 0) return prev;
-      const next = prev.future[0];
-      const newFuture = prev.future.slice(1);
-      return {
-        past: [...prev.past, prev.present],
-        present: next,
-        future: newFuture,
-      };
-    });
-  }, []);
-
-  const clearImage = () => {
-    setImage(null);
-    setHistory({ past: [], present: DEFAULT_SETTINGS, future: [] });
-  };
-
-  const startBlankCanvas = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1920;
-    canvas.height = 1080;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      setImage(canvas.toDataURL('image/jpeg'));
-      setHistory({ past: [], present: DEFAULT_SETTINGS, future: [] });
-    }
-  };
-
-  const handleExport = async () => {
-    if (!image) return;
-    
+  const handleMergeLayers = async () => {
+    if (state.layers.length < 2) return;
     setIsProcessing(true);
-    
     try {
+      // Use the dimensions of the first visible layer or workspace bounds
+      const firstVisible = state.layers.find(l => l.isVisible);
+      if (!firstVisible) return;
+      
       const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = image;
+      img.src = firstVisible.url;
+      await new Promise(r => img.onload = r);
       
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-      });
-      
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      
-      canvas.width = img.width;
-      canvas.height = img.height;
-      
-      const { exposure, contrast, saturation, bokeh, whiteBalance, sharpen, exportFormat, exportQuality } = settings;
-      let filters = [];
-      if (exposure !== 0) filters.push(`brightness(${100 + exposure}%)`);
-      if (contrast !== 0) filters.push(`contrast(${100 + contrast}%)`);
-      if (saturation !== 0) filters.push(`saturate(${100 + saturation}%)`);
-      if (bokeh !== 0) filters.push(`blur(${bokeh / 10}px)`);
-      if (whiteBalance !== 0) filters.push(`hue-rotate(${whiteBalance}deg)`);
-      if (sharpen > 0) filters.push(`contrast(${100 + sharpen / 2}%)`);
-      
-      ctx.filter = filters.join(' ');
-      
-      if (settings.straighten !== 0) {
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate((settings.straighten * Math.PI) / 180);
-        ctx.translate(-canvas.width / 2, -canvas.height / 2);
-      }
-      
-      ctx.drawImage(img, 0, 0);
-      
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        const ext = exportFormat.split('/')[1];
-        link.download = `prot0-neural-export-${Date.now()}.${ext}`;
-        link.href = url;
-        link.click();
-        
-        setTimeout(() => URL.revokeObjectURL(url), 100);
-      }, exportFormat, exportQuality / 100);
+      const mergedUrl = await mergeLayersToDataUrl(state.layers, img.naturalWidth, img.naturalHeight);
+      flattenLayers(mergedUrl);
     } catch (error) {
-      console.error('Export failed:', error);
+      console.error("Merge failed", error);
+      setError("Failed to merge layers.");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const cssFilters = useMemo(() => {
-    const { exposure, contrast, saturation, sharpen, noiseReduction, whiteBalance, bokeh } = settings;
-    let filters = [];
-    if (exposure !== 0) filters.push(`brightness(${100 + exposure}%)`);
-    if (contrast !== 0) filters.push(`contrast(${100 + contrast}%)`);
-    if (saturation !== 0) filters.push(`saturate(${100 + saturation}%)`);
-    if (bokeh !== 0) filters.push(`blur(${bokeh / 10}px)`);
-    if (whiteBalance !== 0) filters.push(`hue-rotate(${whiteBalance}deg)`);
-    // Simulation of sharpen/noise reduction via contrast/blur
-    if (sharpen > 0) filters.push(`contrast(${100 + sharpen / 2}%)`);
-    
-    return filters.join(' ');
-  }, [settings]);
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const renderToolControls = () => {
-    switch (activeCategory) {
-      case 'CORE':
-        return (
-          <div className="space-y-6">
-            <ControlGroup label="Exposure" value={settings.exposure} min={-100} max={100} onChange={(v) => handleSliderChange('exposure', v)} onEnd={(v) => handleSliderEnd('exposure', v)} onStart={handleSliderStart} icon={Sun} />
-            <ControlGroup label="Contrast" value={settings.contrast} min={-100} max={100} onChange={(v) => handleSliderChange('contrast', v)} onEnd={(v) => handleSliderEnd('contrast', v)} onStart={handleSliderStart} icon={Contrast} />
-            <ControlGroup label="Saturation" value={settings.saturation} min={-100} max={100} onChange={(v) => handleSliderChange('saturation', v)} onEnd={(v) => handleSliderEnd('saturation', v)} onStart={handleSliderStart} icon={Droplets} />
-            <ControlGroup label="Sharpen" value={settings.sharpen} min={0} max={100} onChange={(v) => handleSliderChange('sharpen', v)} onEnd={(v) => handleSliderEnd('sharpen', v)} onStart={handleSliderStart} icon={Focus} />
-            <ControlGroup label="Noise Reduction" value={settings.noiseReduction} min={0} max={100} onChange={(v) => handleSliderChange('noiseReduction', v)} onEnd={(v) => handleSliderEnd('noiseReduction', v)} onStart={handleSliderStart} icon={Wind} />
-            <ControlGroup label="White Balance" value={settings.whiteBalance} min={-100} max={100} onChange={(v) => handleSliderChange('whiteBalance', v)} onEnd={(v) => handleSliderEnd('whiteBalance', v)} onStart={handleSliderStart} icon={Thermometer} />
-          </div>
-        );
-      case 'AUTOMOTIVE':
-        return (
-          <div className="space-y-6">
-            <ControlGroup label="Paint Gloss Boost" value={settings.paintGloss} min={0} max={100} onChange={(v) => handleSliderChange('paintGloss', v)} onEnd={(v) => handleSliderEnd('paintGloss', v)} onStart={handleSliderStart} icon={Sparkles} />
-            <ControlGroup label="Wheel Detail" value={settings.wheelDetail} min={0} max={100} onChange={(v) => handleSliderChange('wheelDetail', v)} onEnd={(v) => handleSliderEnd('wheelDetail', v)} onStart={handleSliderStart} icon={Focus} />
-            <ControlGroup label="Night Meet Enhance" value={settings.nightEnhance} min={0} max={100} onChange={(v) => handleSliderChange('nightEnhance', v)} onEnd={(v) => handleSliderEnd('nightEnhance', v)} onStart={handleSliderStart} icon={Moon} />
-            <ControlGroup label="Reflection Clean" value={settings.reflectionClean} min={0} max={100} onChange={(v) => handleSliderChange('reflectionClean', v)} onEnd={(v) => handleSliderEnd('reflectionClean', v)} onStart={handleSliderStart} icon={Eye} />
-            <ControlGroup label="Showroom Finish" value={settings.showroomFinish} min={0} max={100} onChange={(v) => handleSliderChange('showroomFinish', v)} onEnd={(v) => handleSliderEnd('showroomFinish', v)} onStart={handleSliderStart} icon={Camera} />
-          </div>
-        );
-      case 'STYLE':
-        return (
-          <div className="space-y-3">
-            {PRESETS.map(preset => (
-              <button
-                key={preset.id}
-                onClick={() => updateSetting('preset', preset.id, true)}
-                className={cn(
-                  "w-full text-left p-3 rounded-lg border transition-all duration-200",
-                  settings.preset === preset.id 
-                    ? "bg-accent text-bg border-accent" 
-                    : "bg-surface-hover border-border hover:border-accent-muted"
-                )}
-              >
-                <div className="font-medium text-sm">{preset.label}</div>
-                <div className={cn("text-[10px] mt-1", settings.preset === preset.id ? "text-bg/70" : "text-accent-muted")}>
-                  {preset.description}
-                </div>
-              </button>
-            ))}
-          </div>
-        );
-      case 'BACKGROUND':
-        return (
-          <div className="space-y-6">
-            <ControlGroup label="Background Simplify" value={settings.bgSimplify} min={0} max={100} onChange={(v) => handleSliderChange('bgSimplify', v)} onEnd={(v) => handleSliderEnd('bgSimplify', v)} onStart={handleSliderStart} icon={Eraser} />
-            <ControlGroup label="Subject Pop" value={settings.subjectPop} min={0} max={100} onChange={(v) => handleSliderChange('subjectPop', v)} onEnd={(v) => handleSliderEnd('subjectPop', v)} onStart={handleSliderStart} icon={Maximize2} />
-            <ControlGroup label="Bokeh Boost" value={settings.bokeh} min={0} max={100} onChange={(v) => handleSliderChange('bokeh', v)} onEnd={(v) => handleSliderEnd('bokeh', v)} onStart={handleSliderStart} icon={Focus} />
-          </div>
-        );
-      case 'FRAMING':
-        return (
-          <div className="space-y-6">
-            <ControlGroup label="Straighten" value={settings.straighten} min={-45} max={45} onChange={(v) => handleSliderChange('straighten', v)} onEnd={(v) => handleSliderEnd('straighten', v)} onStart={handleSliderStart} icon={Undo2} />
-            <ControlGroup label="Perspective" value={settings.perspective} min={-100} max={100} onChange={(v) => handleSliderChange('perspective', v)} onEnd={(v) => handleSliderEnd('perspective', v)} onStart={handleSliderStart} icon={Maximize2} />
-            <div className="pt-4 border-t border-border">
-              <span className="prot0-label">Aspect Ratio</span>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                {['1:1', '4:5', '16:9', '9:16'].map(ratio => (
-                  <button
-                    key={ratio}
-                    onClick={() => updateSetting('crop', ratio, true)}
-                    className={cn(
-                      "py-2 rounded border text-xs font-mono",
-                      settings.crop === ratio ? "bg-accent text-bg border-accent" : "bg-surface-hover border-border"
-                    )}
-                  >
-                    {ratio}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      case 'REPAIR':
-        return (
-          <div className="space-y-6">
-            <ControlGroup label="Compression Cleanup" value={settings.compressionCleanup} min={0} max={100} onChange={(v) => handleSliderChange('compressionCleanup', v)} onEnd={(v) => handleSliderEnd('compressionCleanup', v)} onStart={handleSliderStart} icon={Wind} />
-            <ControlGroup label="Low Quality Restore" value={settings.lowQualityRestore} min={0} max={100} onChange={(v) => handleSliderChange('lowQualityRestore', v)} onEnd={(v) => handleSliderEnd('lowQualityRestore', v)} onStart={handleSliderStart} icon={Zap} />
-            <ControlGroup label="Reflection Reduction" value={settings.reflectionReduction} min={0} max={100} onChange={(v) => handleSliderChange('reflectionReduction', v)} onEnd={(v) => handleSliderEnd('reflectionReduction', v)} onStart={handleSliderStart} icon={Eye} />
-            <ControlGroup label="Glare Reduction" value={settings.glareReduction} min={0} max={100} onChange={(v) => handleSliderChange('glareReduction', v)} onEnd={(v) => handleSliderEnd('glareReduction', v)} onStart={handleSliderStart} icon={Sun} />
-          </div>
-        );
-      case 'MASKING':
-        return (
-          <div className="space-y-6">
-            <ControlGroup label="Selective Edit" value={settings.selectiveEdit} min={0} max={100} onChange={(v) => handleSliderChange('selectiveEdit', v)} onEnd={(v) => handleSliderEnd('selectiveEdit', v)} onStart={handleSliderStart} icon={BoxSelect} />
-            <ControlGroup label="Sky Replace" value={settings.skyReplace} min={0} max={100} onChange={(v) => handleSliderChange('skyReplace', v)} onEnd={(v) => handleSliderEnd('skyReplace', v)} onStart={handleSliderStart} icon={Cloud} />
-            <ControlGroup label="Skin Cleanup" value={settings.skinCleanup} min={0} max={100} onChange={(v) => handleSliderChange('skinCleanup', v)} onEnd={(v) => handleSliderEnd('skinCleanup', v)} onStart={handleSliderStart} icon={User} />
-          </div>
-        );
-      case 'EXPORT':
-        return (
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <span className="prot0-label">Format</span>
-              <div className="grid grid-cols-3 gap-2 mt-2">
-                {['image/jpeg', 'image/png', 'image/webp'].map(format => (
-                  <button
-                    key={format}
-                    onClick={() => updateSetting('exportFormat', format)}
-                    className={cn(
-                      "py-2 rounded border text-[10px] font-mono",
-                      settings.exportFormat === format ? "bg-accent text-bg border-accent" : "bg-surface-hover border-border"
-                    )}
-                  >
-                    {format.split('/')[1].toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const url = event.target?.result as string;
+      const newLayer: Layer = {
+        id: Date.now().toString(),
+        url,
+        originalUrl: url,
+        opacity: 100,
+        isVisible: true,
+        name: file.name,
+        blendMode: 'normal',
+        x: 0,
+        y: 0,
+        scale: 1,
+        rotation: 0
+      };
+      addToHistory([newLayer, ...state.layers], newLayer.id, 'Import Image');
+    };
+    reader.readAsDataURL(file);
+  };
 
-            {(settings.exportFormat === 'image/jpeg' || settings.exportFormat === 'image/webp') && (
-              <ControlGroup 
-                label="Export Quality" 
-                value={settings.exportQuality} 
-                min={1} 
-                max={100} 
-                onChange={(v) => updateSetting('exportQuality', v)} 
-                icon={Settings2} 
-              />
-            )}
+  const handleGenerate = async () => {
+    if (!prompt) return;
+    setState(prev => ({ ...prev, isProcessing: true }));
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-image-preview',
+        contents: { parts: [{ text: prompt }] },
+        config: { imageConfig: { aspectRatio: "1:1", imageSize: state.targetResolution } }
+      });
 
-            <div className="pt-4 border-t border-border space-y-4">
-              <ExportButton 
-                label="Download Image" 
-                icon={Download} 
-                description={`Export as ${settings.exportFormat.split('/')[1].toUpperCase()}`} 
-                onClick={handleExport}
-                disabled={isProcessing}
-              />
-            </div>
-          </div>
-        );
-      default:
-        return null;
+      let imageUrl = '';
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+          break;
+        }
+      }
+
+      if (imageUrl) {
+        const newLayer: Layer = {
+          id: Date.now().toString(),
+          url: imageUrl,
+          originalUrl: imageUrl,
+          opacity: 100,
+          isVisible: true,
+          name: `Generated: ${prompt.slice(0, 20)}...`,
+          blendMode: 'normal',
+          x: 0,
+          y: 0,
+          scale: 1,
+          rotation: 0
+        };
+        addToHistory([newLayer, ...state.layers], newLayer.id, 'Generate Image');
+        setPrompt('');
+      }
+    } catch (error) {
+      console.error("Generation failed", error);
+      setState(prev => ({ ...prev, error: "Neural generation failed. Please try again." }));
+    } finally {
+      setState(prev => ({ ...prev, isProcessing: false }));
     }
   };
 
+  const handleEdit = async () => {
+    if (!prompt || !currentActiveLayer) return;
+    setState(prev => ({ ...prev, isProcessing: true }));
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-image-preview',
+        contents: {
+          parts: [
+            { inlineData: { data: currentActiveLayer.url.split(',')[1], mimeType: "image/png" } },
+            { text: prompt }
+          ]
+        }
+      });
+
+      let imageUrl = '';
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+          break;
+        }
+      }
+
+      if (imageUrl) {
+        const newLayers = state.layers.map(l => 
+          l.id === state.activeLayerId ? { ...l, url: imageUrl, neuralPrompt: prompt } : l
+        );
+        addToHistory(newLayers, state.activeLayerId, 'Neural Edit');
+        setPrompt('');
+      }
+    } catch (error) {
+      console.error("Edit failed", error);
+      setState(prev => ({ ...prev, error: "Neural edit failed. Please try again." }));
+    } finally {
+      setState(prev => ({ ...prev, isProcessing: false }));
+    }
+  };
+
+  const handleApplyFilter = async (filter: FilterPreset) => {
+    if (!currentActiveLayer) return;
+    const filteredUrl = await applyFiltersToImage(currentActiveLayer.url, filter.prompt);
+    const newLayers = state.layers.map(l => 
+      l.id === state.activeLayerId ? { ...l, url: filteredUrl, cssFilter: filter.prompt } : l
+    );
+    addToHistory(newLayers, state.activeLayerId, `Apply Filter: ${filter.label}`);
+  };
+
+  const handleApplyStyle = async (style: any) => {
+    if (!currentActiveLayer) return;
+    setState(prev => ({ ...prev, isProcessing: true }));
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.1-flash-image-preview',
+        contents: {
+          parts: [
+            { inlineData: { data: currentActiveLayer.url.split(',')[1], mimeType: "image/png" } },
+            { text: `Apply the artistic style of ${style.artist} to this image. Maintain the original composition but transform the textures and colors.` }
+          ]
+        }
+      });
+
+      let imageUrl = '';
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+          break;
+        }
+      }
+
+      if (imageUrl) {
+        const newLayers = state.layers.map(l => 
+          l.id === state.activeLayerId ? { ...l, url: imageUrl } : l
+        );
+        addToHistory(newLayers, state.activeLayerId, `Style Transfer: ${style.label}`);
+      }
+    } catch (error) {
+      console.error("Style transfer failed", error);
+    } finally {
+      setState(prev => ({ ...prev, isProcessing: false }));
+    }
+  };
+
+  const handleSocialResize = async (preset: SocialPreset) => {
+    if (!currentActiveLayer) return;
+    const resizedUrl = await resizeImageToAspectRatio(currentActiveLayer.url, preset.aspectRatio);
+    const newLayers = state.layers.map(l => 
+      l.id === state.activeLayerId ? { ...l, url: resizedUrl } : l
+    );
+    addToHistory(newLayers, state.activeLayerId, `Social Resize: ${preset.label}`);
+  };
+
+  const handleCrop = async () => {
+    if (!currentActiveLayer || !imageRef.current) return;
+    const img = imageRef.current;
+    const realX = (cropRect.x / 100) * img.naturalWidth;
+    const realY = (cropRect.y / 100) * img.naturalHeight;
+    const realW = (cropRect.width / 100) * img.naturalWidth;
+    const realH = (cropRect.height / 100) * img.naturalHeight;
+
+    const croppedUrl = await cropImage(currentActiveLayer.url, { x: realX, y: realY, width: realW, height: realH });
+    const newLayers = state.layers.map(l => 
+      l.id === state.activeLayerId ? { ...l, url: croppedUrl } : l
+    );
+    addToHistory(newLayers, state.activeLayerId, 'Crop Image');
+    handleModeSwitch(EditMode.GENERATE);
+  };
+
+  const handleCollage = async () => {
+    if (selectedLayerIds.length < 2) return;
+    const urls = state.layers.filter(l => selectedLayerIds.includes(l.id)).map(l => l.url);
+    const collageUrl = await createCollage(urls, activeCollageLayout as any);
+    const newLayer: Layer = {
+      id: Date.now().toString(),
+      url: collageUrl,
+      originalUrl: collageUrl,
+      opacity: 100,
+      isVisible: true,
+      name: `Collage: ${activeCollageLayout}`,
+      blendMode: 'normal',
+      x: 0,
+      y: 0,
+      scale: 1,
+      rotation: 0
+    };
+    addToHistory([newLayer, ...state.layers], newLayer.id, 'Create Collage');
+    handleModeSwitch(EditMode.GENERATE);
+  };
+
+  const handleExport = async () => {
+    if (state.layers.length === 0) return;
+    // For simplicity, we use the first layer's dimensions or a default
+    const firstImg = new Image();
+    firstImg.src = state.layers[0].url;
+    await new Promise(r => firstImg.onload = r);
+    
+    await exportComposition(
+      state.layers, 
+      firstImg.naturalWidth, 
+      firstImg.naturalHeight, 
+      exportConfig
+    );
+    setShowExportModal(false);
+  };
+
   return (
-    <div className="flex h-screen bg-bg text-accent font-sans overflow-hidden flex-col md:flex-row">
-      {/* Left Sidebar - Categories (Bottom bar on mobile) */}
-      <aside className="w-full md:w-16 h-16 md:h-full border-t md:border-t-0 md:border-r border-border flex flex-row md:flex-col items-center justify-around md:justify-start py-0 md:py-6 gap-0 md:gap-6 bg-surface z-30 order-last md:order-first">
-        <div className="hidden md:flex w-10 h-10 bg-accent text-bg rounded-xl items-center justify-center font-black text-xl mb-4">
-          P0
+    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-fuchsia-500/30 overflow-hidden flex flex-col">
+      {/* Header */}
+      <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-black/40 backdrop-blur-xl z-50">
+        <Logo />
+        
+        <div className="hidden md:flex items-center gap-1 bg-white/5 p-1 rounded-2xl border border-white/5">
+          {Object.values(EditMode).slice(0, 6).map(mode => (
+            <button
+              key={mode}
+              onClick={() => handleModeSwitch(mode)}
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${state.activeMode === mode ? 'bg-white text-black shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+            >
+              {mode}
+            </button>
+          ))}
         </div>
-        {TOOL_CATEGORIES.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setActiveCategory(cat.id)}
-            className={cn(
-              "p-3 rounded-xl transition-all duration-200 group relative",
-              activeCategory === cat.id ? "bg-accent text-bg" : "text-accent-muted hover:text-accent hover:bg-surface-hover"
-            )}
+
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-1 mr-2">
+            <button onClick={undo} disabled={state.historyIndex >= state.history.length - 1} className="p-2 rounded-xl hover:bg-white/5 text-white/40 hover:text-white disabled:opacity-20 transition-all"><Undo2 className="w-5 h-5" /></button>
+            <button onClick={redo} disabled={state.historyIndex === 0} className="p-2 rounded-xl hover:bg-white/5 text-white/40 hover:text-white disabled:opacity-20 transition-all"><Redo2 className="w-5 h-5" /></button>
+          </div>
+          <button 
+            onClick={() => setShowExportModal(true)}
+            className="px-6 py-2.5 bg-gradient-to-r from-fuchsia-600 to-purple-600 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-fuchsia-600/20 hover:scale-105 active:scale-95 transition-all"
           >
-            <cat.icon size={20} />
-            <div className="absolute left-full ml-4 px-2 py-1 bg-surface border border-border rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-              {cat.label}
-            </div>
+            Export
           </button>
-        ))}
-        <div className="hidden md:flex mt-auto flex-col gap-4">
-          <button className="p-3 text-accent-muted hover:text-accent group relative">
-            <Settings2 size={20} />
-            <div className="absolute left-full ml-4 px-2 py-1 bg-surface border border-border rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-              Settings
-            </div>
-          </button>
+          <button onClick={() => setShowLayers(!showLayers)} className="md:hidden p-2 rounded-xl bg-white/5 border border-white/10"><Layers className="w-5 h-5" /></button>
         </div>
-      </aside>
+      </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col relative overflow-hidden">
-        {/* Top Header */}
-        <header className="h-14 border-b border-border flex items-center justify-between px-3 md:px-6 bg-surface/80 backdrop-blur-md z-20 shrink-0">
-          <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
-            <div className="flex md:hidden w-8 h-8 bg-accent text-bg rounded-lg items-center justify-center font-black text-sm shrink-0">
-              P0
-            </div>
-            <div className="flex flex-col overflow-hidden">
-              <h1 className="text-xs md:text-sm font-black tracking-tighter truncate uppercase leading-none">Prot0 Neural Suite</h1>
-              <span className="text-[8px] md:text-[10px] text-accent-muted font-mono uppercase tracking-widest truncate">v2.5 // Neural Engine</span>
-            </div>
-          </div>
+      <main className="flex-1 flex overflow-hidden relative">
+        {/* Sidebar Tools */}
+        <aside className="hidden md:flex w-20 flex-col items-center py-6 gap-6 border-r border-white/5 bg-black/20">
+          {[
+            { mode: EditMode.GENERATE, icon: <Sparkles />, label: 'Neural' },
+            { mode: EditMode.COLOR, icon: <Sliders />, label: 'Color' },
+            { mode: EditMode.STYLE_TRANSFER, icon: <Palette />, label: 'Style' },
+            { mode: EditMode.CROP, icon: <Crop />, label: 'Crop' },
+            { mode: EditMode.SOCIAL, icon: <Maximize />, label: 'Social' },
+            { mode: EditMode.COLLAGE, icon: <Layout />, label: 'Collage' },
+            { mode: EditMode.TRANSFORM, icon: <Move />, label: 'Move' },
+          ].map(tool => (
+            <button
+              key={tool.mode}
+              onClick={() => handleModeSwitch(tool.mode)}
+              className={`group flex flex-col items-center gap-2 transition-all ${state.activeMode === tool.mode ? 'text-fuchsia-500' : 'text-white/30 hover:text-white'}`}
+            >
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${state.activeMode === tool.mode ? 'bg-fuchsia-500/10 border border-fuchsia-500/20 shadow-lg shadow-fuchsia-500/5' : 'bg-white/5 border border-transparent group-hover:bg-white/10'}`}>
+                {React.cloneElement(tool.icon as React.ReactElement, { className: 'w-5 h-5' })}
+              </div>
+              <span className="text-[8px] font-black uppercase tracking-widest">{tool.label}</span>
+            </button>
+          ))}
+        </aside>
 
-          <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
-            <button 
-              onClick={undo} 
-              disabled={history.past.length === 0}
-              className="prot0-button prot0-button-secondary p-1.5 md:py-1.5 md:px-3 text-[10px] md:text-xs disabled:opacity-30 group relative"
-            >
-              <Undo2 size={12} className="md:w-3.5 md:h-3.5" />
-              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-                Undo
-              </div>
-            </button>
-            <button 
-              onClick={redo} 
-              disabled={history.future.length === 0}
-              className="prot0-button prot0-button-secondary p-1.5 md:py-1.5 md:px-3 text-[10px] md:text-xs disabled:opacity-30 group relative"
-            >
-              <Redo2 size={12} className="md:w-3.5 md:h-3.5" />
-              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-                Redo
-              </div>
-            </button>
-            <button onClick={clearImage} className="prot0-button prot0-button-secondary p-1.5 md:py-1.5 md:px-3 text-[10px] md:text-xs group relative">
-              <Trash2 size={12} className="md:w-3.5 md:h-3.5" /> <span className="hidden sm:inline">Clear</span>
-              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-                Clear Image
-              </div>
-            </button>
-            <button 
-              onClick={handleExport}
-              disabled={!image}
-              className="prot0-button prot0-button-primary py-1 px-2.5 md:py-1.5 md:px-4 text-[10px] md:text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed group relative"
-            >
-              <Download size={12} className="md:w-3.5 md:h-3.5" /> <span className="hidden sm:inline">Export</span>
-              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-                Export Image
-              </div>
-            </button>
-          </div>
-        </header>
-
-        {/* Viewport */}
-        <div 
-          {...getRootProps()} 
-          className={cn(
-            "flex-1 flex items-center justify-center p-8 transition-colors duration-300 relative",
-            isDragActive ? "bg-accent/5" : "bg-bg"
-          )}
-        >
-          {/* Neural Grid Background */}
-          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
-               style={{ 
-                 backgroundImage: `linear-gradient(var(--color-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-border) 1px, transparent 1px)`,
-                 backgroundSize: '40px 40px'
-               }} 
-          />
+        {/* Workspace */}
+        <section ref={workspaceRef} className="flex-1 relative bg-[#0a0a0a] flex items-center justify-center p-12 overflow-hidden">
+          <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #333 1px, transparent 0)', backgroundSize: '40px 40px' }} />
           
-          <input {...getInputProps()} />
-          
-          {!image ? (
-            <div className="text-center space-y-4 max-w-md">
-              <div className="w-20 h-20 border-2 border-dashed border-border rounded-3xl flex items-center justify-center mx-auto text-accent-muted group-hover:border-accent transition-colors">
-                <ImageIcon size={32} />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold tracking-tight">Drop your masterpiece</h2>
-                <p className="text-accent-muted text-sm mt-1">RAW, JPEG, PNG supported. Neural engine ready.</p>
-              </div>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-4">
-                <button className="prot0-button prot0-button-primary px-8">
-                  Select File
-                </button>
-                <button 
-                  onClick={startBlankCanvas}
-                  className="prot0-button prot0-button-secondary px-8"
-                >
-                  Blank Canvas
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="relative group max-w-full max-h-full">
-              <motion.div 
-                layoutId="image-container"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="relative shadow-2xl rounded-sm overflow-hidden border border-border bg-surface"
-              >
-                <img 
-                  src={image} 
-                  alt="Preview" 
-                  className="max-w-full max-h-[75vh] object-contain transition-all duration-500"
-                  style={{ 
-                    filter: cssFilters,
-                    transform: `rotate(${settings.straighten}deg) scale(${1 + Math.abs(settings.perspective) / 500})`,
-                    willChange: 'filter, transform' // Performance: Hardware acceleration
-                  }}
-                />
-                
-                {/* Neural Processing Overlay */}
-                <AnimatePresence>
-                  {isProcessing && (
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="absolute inset-0 bg-bg/20 backdrop-blur-[2px] flex items-center justify-center z-10"
+          <div className="relative max-w-full max-h-full shadow-2xl shadow-black/50 group">
+            <AnimatePresence mode="wait">
+              {state.layers.length > 0 ? (
+                <div className="relative">
+                  {state.layers.map((layer, idx) => (
+                    <motion.div
+                      key={layer.id}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ 
+                        opacity: layer.isVisible ? (layer.opacity / 100) : 0, 
+                        scale: layer.scale || 1,
+                        x: layer.x || 0,
+                        y: layer.y || 0,
+                        rotate: layer.rotation || 0
+                      }}
+                      className="absolute inset-0 pointer-events-none"
+                      style={{ 
+                        zIndex: state.layers.length - idx,
+                        mixBlendMode: layer.blendMode as any,
+                        filter: layer.cssFilter
+                      }}
                     >
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-12 h-12 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                        <span className="text-[10px] font-mono tracking-[0.3em] uppercase animate-pulse">Neural Processing</span>
-                      </div>
+                      <img 
+                        src={isComparing && state.activeLayerId === layer.id ? layer.originalUrl : layer.url} 
+                        alt={layer.name}
+                        className="w-full h-full object-contain"
+                        referrerPolicy="no-referrer"
+                      />
                     </motion.div>
+                  ))}
+                  
+                  {/* Active Layer Interaction Layer */}
+                  {currentActiveLayer && (
+                    <div className="relative z-[100]">
+                      <img 
+                        ref={imageRef}
+                        src={isComparing ? currentActiveLayer.originalUrl : currentActiveLayer.url} 
+                        alt="Active Layer"
+                        className="max-w-full max-h-[70vh] object-contain opacity-0"
+                        onLoad={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setCropBounds({ width: rect.width, height: rect.height, left: rect.left, top: rect.top });
+                        }}
+                      />
+                      
+                      {state.activeMode === EditMode.CROP && (
+                        <CropOverlay rect={cropRect} onChange={setCropRect} imageRef={imageRef} />
+                      )}
+                      
+                      {state.activeMode === EditMode.TRANSFORM && (
+                        <TransformOverlay 
+                          layer={currentActiveLayer} 
+                          onChange={(updates) => updateSelectedLayer(updates)} 
+                          imageRef={imageRef} 
+                        />
+                      )}
+                    </div>
                   )}
-                </AnimatePresence>
-              </motion.div>
-
-              {/* Viewport Toolbar */}
-              <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-surface/90 backdrop-blur-md border border-border p-1.5 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <ViewportTool icon={Undo2} label="Undo" />
-                <ViewportTool icon={Redo2} label="Redo" />
-                <div className="w-[1px] h-4 bg-border mx-1" />
-                <ViewportTool icon={Maximize2} label="Full Screen" />
-                <ViewportTool icon={Crop} label="Crop" />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Bottom Status Bar */}
-        <footer className="h-8 border-t border-border bg-surface flex items-center justify-between px-4 text-[9px] font-mono text-accent-muted uppercase tracking-widest">
-          <div className="flex items-center gap-4">
-            <span>Status: {isProcessing ? 'Processing' : 'Ready'}</span>
-            <span>Engine: Prot0 Neural v1.0</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span>Mode: {mode}</span>
-            <span>Resolution: {image ? '3840 x 2160' : 'N/A'}</span>
-          </div>
-        </footer>
-      </main>
-
-      {/* Right Sidebar - Controls (Overlay on mobile) */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <motion.aside 
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            className="fixed md:relative right-0 top-0 bottom-0 w-72 md:w-80 border-l border-border bg-surface flex flex-col z-40 md:z-30 shadow-2xl md:shadow-none"
-          >
-            <div className="p-6 flex items-center justify-between border-b border-border">
-              <h3 className="text-xs font-bold tracking-widest uppercase">{activeCategory}</h3>
-              <button onClick={() => setSidebarOpen(false)} className="text-accent-muted hover:text-accent group relative">
-                <ChevronRight size={16} />
-                <div className="absolute bottom-full mb-2 right-0 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-                  Close Sidebar
                 </div>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex flex-col items-center gap-8 text-center"
+                >
+                  <div className="w-32 h-32 rounded-[2.5rem] bg-gradient-to-br from-fuchsia-600/20 to-purple-600/20 border border-white/5 flex items-center justify-center">
+                    <Sparkles className="w-12 h-12 text-fuchsia-500 animate-pulse" />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-3xl font-black tracking-tighter">Start your creation</h2>
+                    <p className="text-white/40 text-sm max-w-xs">Upload an image or use neural generation to begin your masterpiece.</p>
+                  </div>
+                  <div className="flex gap-4">
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-8 py-4 bg-white text-black rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-3"
+                    >
+                      <Upload className="w-4 h-4" /> Import Image
+                    </button>
+                    <button 
+                      onClick={() => handleModeSwitch(EditMode.GENERATE)}
+                      className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-3"
+                    >
+                      <Sparkles className="w-4 h-4" /> Neural Draft
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Floating Controls */}
+          <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-black/60 backdrop-blur-2xl px-6 py-4 rounded-[2rem] border border-white/5 shadow-2xl">
+            <div className="flex items-center gap-2 pr-6 border-r border-white/10">
+              <button 
+                onMouseDown={() => setIsComparing(true)}
+                onMouseUp={() => setIsComparing(false)}
+                onTouchStart={() => setIsComparing(true)}
+                onTouchEnd={() => setIsComparing(false)}
+                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all"
+                title="Compare with Original"
+              >
+                <History className="w-5 h-5" />
+              </button>
+              <button 
+                onClick={() => currentActiveLayer && resetLayerToOriginal(currentActiveLayer.id)}
+                className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white/40 hover:text-white transition-all"
+                title="Reset Layer"
+              >
+                <RotateCcw className="w-5 h-5" />
               </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-              {renderToolControls()}
+            <div className="flex items-center gap-6">
+              <div className="flex flex-col gap-1">
+                <span className="text-[8px] font-black uppercase tracking-widest text-white/30">Resolution</span>
+                <select 
+                  value={state.targetResolution}
+                  onChange={(e) => setState(prev => ({ ...prev, targetResolution: e.target.value as TargetResolution }))}
+                  className="bg-transparent text-[10px] font-bold uppercase tracking-widest outline-none cursor-pointer hover:text-fuchsia-400 transition-colors"
+                >
+                  <option value="1K">1K Standard</option>
+                  <option value="2K">2K High-Res</option>
+                  <option value="4K">4K Ultra-HD</option>
+                </select>
+              </div>
+              <div className="w-px h-8 bg-white/10" />
+              <div className="flex flex-col gap-1">
+                <span className="text-[8px] font-black uppercase tracking-widest text-white/30">Active Mode</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-fuchsia-500">{state.activeMode}</span>
+              </div>
             </div>
+          </div>
+        </section>
 
-            <div className="p-6 border-t border-border bg-bg/50">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-[10px] font-mono text-accent-muted uppercase tracking-widest">History</span>
-                <span className="text-[10px] font-mono text-accent-muted">08 Steps</span>
+        {/* Right Panel (Contextual) */}
+        <aside className={`hidden md:flex w-80 flex-col border-l border-white/5 bg-black/40 backdrop-blur-xl transition-all ${showLayers ? 'mr-0' : '-mr-0'}`}>
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            {state.activeMode === EditMode.GENERATE || state.activeMode === EditMode.EDIT ? (
+              <div className="p-8 space-y-8">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Neural Engine</h3>
+                    <Zap className="w-4 h-4 text-fuchsia-500" />
+                  </div>
+                  <textarea 
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder={state.activeMode === EditMode.GENERATE ? "Describe the image you want to create..." : "Describe the changes you want to make..."}
+                    className="w-full h-40 bg-white/5 border border-white/10 rounded-3xl p-5 text-sm font-medium placeholder:text-white/20 focus:border-fuchsia-500/50 focus:bg-white/[0.07] outline-none transition-all resize-none"
+                  />
+                  <button 
+                    onClick={state.activeMode === EditMode.GENERATE ? handleGenerate : handleEdit}
+                    disabled={state.isProcessing || !prompt}
+                    className="w-full py-5 bg-white text-black rounded-3xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all flex items-center justify-center gap-3 shadow-xl shadow-white/5"
+                  >
+                    {state.isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    {state.activeMode === EditMode.GENERATE ? 'Generate Asset' : 'Apply Neural Edit'}
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Quick Looks</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    {PRESET_FILTERS.slice(0, 4).map(filter => (
+                      <button 
+                        key={filter.id}
+                        onClick={() => handleApplyFilter(filter)}
+                        className="p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-fuchsia-500/30 hover:bg-white/10 transition-all text-left group"
+                      >
+                        <span className="text-xl mb-2 block group-hover:scale-110 transition-transform">{filter.icon}</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-white/60">{filter.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <HistoryItem label="Import Original" active />
-                <HistoryItem label="Neural Exposure" />
-                <HistoryItem label="Gloss Boost" />
+            ) : state.activeMode === EditMode.COLOR ? (
+              <div className="p-8 space-y-8">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Color Lab</h3>
+                {[
+                  { label: 'Brightness', value: brightness, setter: setBrightness, min: 0, max: 200 },
+                  { label: 'Saturation', value: saturation, setter: setSaturation, min: 0, max: 200 },
+                  { label: 'Hue', value: hue, setter: setHue, min: 0, max: 360 },
+                  { label: 'Blur', value: blur, setter: setBlur, min: 0, max: 20 },
+                ].map(control => (
+                  <div key={control.label} className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">{control.label}</span>
+                      <span className="text-[10px] font-mono text-fuchsia-500">{control.value}</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min={control.min} 
+                      max={control.max} 
+                      value={control.value} 
+                      onChange={(e) => control.setter(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-fuchsia-500"
+                    />
+                  </div>
+                ))}
+                <button 
+                  onClick={() => {
+                    if (!currentActiveLayer) return;
+                    const filter = `brightness(${brightness}%) saturate(${saturation}%) hue-rotate(${hue}deg) blur(${blur}px)`;
+                    handleApplyFilter({ id: 'custom', label: 'Custom', icon: '', prompt: filter, color: '' });
+                  }}
+                  className="w-full py-5 bg-fuchsia-600 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-fuchsia-500 transition-all"
+                >
+                  Apply Adjustments
+                </button>
               </div>
-            </div>
-          </motion.aside>
+            ) : state.activeMode === EditMode.CROP ? (
+              <div className="p-8 space-y-8">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Precision Crop</h3>
+                <p className="text-xs text-white/40 leading-relaxed">Adjust the handles in the workspace to define your crop area. Use the rule of thirds grid for better composition.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: '1:1 Square', ratio: '1:1' },
+                    { label: '4:5 Portrait', ratio: '4:5' },
+                    { label: '16:9 Wide', ratio: '16:9' },
+                    { label: '9:16 Story', ratio: '9:16' },
+                  ].map(preset => (
+                    <button 
+                      key={preset.ratio}
+                      onClick={() => {
+                        const [w, h] = preset.ratio.split(':').map(Number);
+                        const newH = (80 * (h/w));
+                        setCropRect({ x: 10, y: 10, width: 80, height: Math.min(80, newH) });
+                      }}
+                      className="p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-fuchsia-500/30 transition-all text-[9px] font-black uppercase tracking-widest text-white/60"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+                <button 
+                  onClick={handleCrop}
+                  className="w-full py-5 bg-white text-black rounded-3xl text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition-all"
+                >
+                  Confirm Crop
+                </button>
+              </div>
+            ) : state.activeMode === EditMode.SOCIAL ? (
+              <div className="p-8 space-y-8">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Social Optimizer</h3>
+                <div className="space-y-3">
+                  {SOCIAL_PRESETS.map(preset => (
+                    <button 
+                      key={preset.id}
+                      onClick={() => handleSocialResize(preset)}
+                      className="w-full p-5 rounded-3xl bg-white/5 border border-white/5 hover:border-fuchsia-500/30 hover:bg-white/10 transition-all flex items-center gap-4 text-left"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-xl">{preset.icon}</div>
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-white">{preset.label}</div>
+                        <div className="text-[8px] font-bold uppercase tracking-widest text-white/30 mt-1">{preset.platform} • {preset.aspectRatio}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : state.activeMode === EditMode.COLLAGE ? (
+              <div className="p-8 space-y-8">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Collage Architect</h3>
+                <p className="text-xs text-white/40 leading-relaxed">Select 2 or more layers in the layer panel, then choose a layout to merge them into a creative collage.</p>
+                <div className="space-y-3">
+                  {COLLAGE_LAYOUTS.map(layout => (
+                    <button 
+                      key={layout.id}
+                      onClick={() => {
+                        setActiveCollageLayout(layout.id);
+                        handleCollage();
+                      }}
+                      disabled={selectedLayerIds.length < 2}
+                      className="w-full p-5 rounded-3xl bg-white/5 border border-white/5 hover:border-fuchsia-500/30 hover:bg-white/10 transition-all flex items-center gap-4 text-left disabled:opacity-30"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-xl">{layout.icon}</div>
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-white">{layout.label}</div>
+                        <div className="text-[8px] font-bold uppercase tracking-widest text-white/30 mt-1">Smart Layout Engine</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 flex flex-col items-center justify-center h-full text-center space-y-4">
+                <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center">
+                  <Settings className="w-8 h-8 text-white/20" />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/20">Select a tool to begin</p>
+              </div>
+            )}
+          </div>
+          
+          {/* Layer Panel (Integrated) */}
+          <div className="h-1/2 border-t border-white/5">
+            <LayerPanelContent 
+              activeMode={state.activeMode}
+              layers={state.layers}
+              groups={state.groups}
+              activeLayerId={state.activeLayerId}
+              selectedLayerIds={selectedLayerIds}
+              isComparing={isComparing}
+              createGroup={createGroup}
+              mergeLayers={handleMergeLayers}
+              duplicateLayer={duplicateLayer}
+              toggleGroupCollapse={toggleGroupCollapse}
+              setActiveLayer={setActiveLayerId}
+              updateLayer={updateLayer}
+              deleteLayer={deleteLayer}
+              moveLayer={moveLayer}
+              handleDragStart={handleDragStart}
+              handleDragOver={handleDragOver}
+              handleDrop={handleDrop}
+              setSelectedLayerIds={setSelectedLayerIds}
+            />
+          </div>
+        </aside>
+      </main>
+
+      {/* Hidden File Input */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileUpload} 
+        accept="image/*" 
+        className="hidden" 
+      />
+
+      {/* Export Modal */}
+      <AnimatePresence>
+        {showExportModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowExportModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-xl"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-[#111] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl"
+            >
+              <div className="p-10 space-y-8">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h3 className="text-2xl font-black tracking-tighter">Export Asset</h3>
+                    <p className="text-xs text-white/40 uppercase tracking-widest font-bold">Configure your final output</p>
+                  </div>
+                  <button onClick={() => setShowExportModal(false)} className="p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-all"><X className="w-6 h-6" /></button>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-white/40">Format</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {['image/jpeg', 'image/png', 'image/webp'].map(format => (
+                        <button 
+                          key={format}
+                          onClick={() => setExportConfig(prev => ({ ...prev, format: format as any }))}
+                          className={`py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${exportConfig.format === format ? 'bg-white text-black' : 'bg-white/5 border border-white/5 hover:bg-white/10'}`}
+                        >
+                          {format.split('/')[1]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-white/40">Quality</label>
+                      <span className="text-[10px] font-mono text-fuchsia-500">{exportConfig.quality}%</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="1" 
+                      max="100" 
+                      value={exportConfig.quality} 
+                      onChange={(e) => setExportConfig(prev => ({ ...prev, quality: parseInt(e.target.value) }))}
+                      className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-fuchsia-500"
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  onClick={handleExport}
+                  className="w-full py-6 bg-gradient-to-r from-fuchsia-600 to-purple-600 rounded-3xl text-xs font-black uppercase tracking-widest shadow-xl shadow-fuchsia-600/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+                >
+                  <Download className="w-5 h-5" /> Download Master Asset
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
-      {!sidebarOpen && (
-        <button 
-          onClick={() => setSidebarOpen(true)}
-          className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-12 bg-surface border-l border-y border-border rounded-l-md flex items-center justify-center text-accent-muted hover:text-accent z-40 group relative"
-        >
-          <ChevronLeft size={16} />
-          <div className="absolute bottom-full mb-2 right-0 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-            Open Sidebar
-          </div>
-        </button>
-      )}
+      {/* Mobile Bottom Sheets */}
+      <MobileBottomSheet isOpen={showMobileLayers} onClose={() => setShowMobileLayers(false)} title="Layers">
+        <LayerPanelContent 
+          activeMode={state.activeMode}
+          layers={state.layers}
+          groups={state.groups}
+          activeLayerId={state.activeLayerId}
+          selectedLayerIds={selectedLayerIds}
+          isComparing={isComparing}
+          createGroup={createGroup}
+          mergeLayers={handleMergeLayers}
+          duplicateLayer={duplicateLayer}
+          toggleGroupCollapse={toggleGroupCollapse}
+          setActiveLayer={(id) => { setActiveLayerId(id); setShowMobileLayers(false); }}
+          updateLayer={updateLayer}
+          deleteLayer={deleteLayer}
+          moveLayer={moveLayer}
+          handleDragStart={handleDragStart}
+          handleDragOver={handleDragOver}
+          handleDrop={handleDrop}
+          setSelectedLayerIds={setSelectedLayerIds}
+        />
+      </MobileBottomSheet>
+
+      {/* Mobile Nav */}
+      <nav className="md:hidden h-20 border-t border-white/5 bg-black/80 backdrop-blur-2xl flex items-center justify-around px-6 pb-2">
+        {[
+          { mode: EditMode.GENERATE, icon: <Sparkles />, label: 'Neural' },
+          { mode: EditMode.COLOR, icon: <Sliders />, label: 'Color' },
+          { mode: EditMode.LAYERS, icon: <Layers />, label: 'Layers', onClick: () => setShowMobileLayers(true) },
+          { mode: EditMode.TRANSFORM, icon: <Move />, label: 'Move' },
+        ].map(tool => (
+          <button
+            key={tool.label}
+            onClick={tool.onClick || (() => handleModeSwitch(tool.mode))}
+            className={`flex flex-col items-center gap-1.5 ${state.activeMode === tool.mode ? 'text-fuchsia-500' : 'text-white/30'}`}
+          >
+            {React.cloneElement(tool.icon as React.ReactElement, { className: 'w-6 h-6' })}
+            <span className="text-[8px] font-black uppercase tracking-widest">{tool.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   );
-}
+};
 
-const ControlGroup = React.memo(({ label, value, min, max, onChange, onStart, onEnd, icon: Icon }: { label: string, value: number, min: number, max: number, onChange: (v: number) => void, onStart?: () => void, onEnd?: (v: number) => void, icon: any }) => {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 group relative">
-          <Icon size={14} className="text-accent-muted" />
-          <div className="absolute bottom-full mb-2 left-0 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
-            {label}
-          </div>
-          <span className="prot0-label mb-0">{label}</span>
-        </div>
-        <span className="text-[10px] font-mono text-accent">{value > 0 ? `+${value}` : value}</span>
-      </div>
-      <input 
-        type="range" 
-        min={min} 
-        max={max} 
-        value={value} 
-        onMouseDown={onStart}
-        onTouchStart={onStart}
-        onChange={(e) => onChange(parseInt(e.target.value))}
-        onMouseUp={(e) => onEnd?.(parseInt((e.target as HTMLInputElement).value))}
-        onTouchEnd={(e) => onEnd?.(parseInt((e.target as HTMLInputElement).value))}
-        className="prot0-slider"
-      />
-    </div>
-  );
-});
-
-const ExportButton = React.memo(({ label, icon: Icon, description, onClick, disabled }: { label: string, icon: any, description: string, onClick?: () => void, disabled?: boolean }) => {
-  return (
-    <button 
-      onClick={onClick}
-      disabled={disabled}
-      className="w-full group text-left p-4 rounded-xl bg-surface-hover border border-border hover:border-accent-muted transition-all duration-300 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      <div className="flex items-center gap-3 mb-1">
-        <div className="p-2 rounded-lg bg-bg text-accent-muted group-hover:text-accent transition-colors relative group/icon">
-          <Icon size={18} />
-          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover/icon:opacity-100 pointer-events-none transition-opacity z-50">
-            {label}
-          </div>
-        </div>
-        <span className="font-bold text-sm tracking-tight">{label}</span>
-      </div>
-      <p className="text-[10px] text-accent-muted ml-11">{description}</p>
-    </button>
-  );
-});
-
-function ViewportTool({ icon: Icon, label }: { icon: any, label: string }) {
-  return (
-    <button className="p-2 text-accent-muted hover:text-accent hover:bg-white/10 rounded-full transition-all group relative">
-      <Icon size={18} />
-      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
-        {label}
-      </div>
-    </button>
-  );
-}
-
-function HistoryItem({ label, active = false }: { label: string, active?: boolean }) {
-  return (
-    <div className={cn(
-      "flex items-center gap-3 px-3 py-2 rounded-md text-[10px] font-medium transition-colors cursor-pointer",
-      active ? "bg-accent/10 text-accent border-l-2 border-accent" : "text-accent-muted hover:bg-surface-hover"
-    )}>
-      <div className={cn("w-1 h-1 rounded-full", active ? "bg-accent" : "bg-border")} />
-      {label}
-    </div>
-  );
-}
+export default App;

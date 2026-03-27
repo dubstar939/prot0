@@ -1,6 +1,6 @@
 {
-  "name": "Prot0 Creative Suite by 939Pro",
-  "description": "A world-class professional photo editing suite featuring local image processing, creative filters, and powerful composition tools.",
+  "name": "Prot0 Neural Suite",
+  "description": "Professional automotive-focused creative ecosystem featuring AUTO and PRO modes for intelligent, high-detail image editing.",
   "requestFramePermissions": [
     "camera"
   ]

@@ -10,26 +10,18 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  if (process.env.NODE_ENV !== "production") {
-    // Vite middleware for development
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    // Production: Serve static files from the dist directory
-    const distPath = path.join(__dirname, "dist");
-    app.use(express.static(distPath));
-    
-    // Fallback to index.html for SPA routing
-    app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
+  // Vite middleware for development
+  const vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: "spa",
+  });
+  app.use(vite.middlewares);
+
+  // Serve static files from the root (for index.css etc if needed)
+  app.use(express.static(__dirname));
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
+    console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 

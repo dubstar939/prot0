@@ -1,598 +1,696 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Sparkles, History, RotateCcw, Layers, Plus, AlertCircle, X
+  Camera, 
+  Layers, 
+  Zap, 
+  Settings2, 
+  Car, 
+  Palette, 
+  Image as ImageIcon, 
+  Crop, 
+  Wrench, 
+  BoxSelect, 
+  Download, 
+  Undo2, 
+  Redo2, 
+  Maximize2, 
+  ChevronRight, 
+  ChevronLeft,
+  Sliders,
+  Sun,
+  Contrast,
+  Droplets,
+  Focus,
+  Wind,
+  Thermometer,
+  Sparkles,
+  Moon,
+  Eye,
+  Eraser,
+  Cloud,
+  User,
+  Share2,
+  Printer,
+  Globe,
+  Trash2
 } from 'lucide-react';
-import { useAppState } from './src/hooks/useAppState';
-import { EditMode, Layer } from './types';
-import { generateImage } from './src/services/geminiService';
-import { mergeLayersToDataUrl } from './src/services/canvasService';
-import { applyFiltersToImage, createCollage } from './services/localImageService';
+import { Mode, ToolCategory, ToolSettings, DEFAULT_SETTINGS } from './types';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-// New Components
-import { Sidebar } from './src/components/Sidebar';
-import { Workspace } from './src/components/Workspace';
-import { ContextualPanel } from './src/components/ContextualPanel';
-import { LayerPanelContent } from './src/components/LayerPanelContent';
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
-/**
- * @fileoverview Main application component for Neural Canvas.
- * Orchestrates the overall layout, state management, and high-level handlers.
- * Refactored for readability, simplicity, and performance.
- */
-const App: React.FC = () => {
-  const {
-    state,
-    setState,
-    prompt,
-    setPrompt,
-    showLayers,
-    setShowLayers,
-    isComparing,
-    setIsComparing,
-    cropRect,
-    setCropRect,
-    cropBounds,
-    setCropBounds,
-    addToHistory,
-    undo,
-    redo,
-    deleteLayer,
-    updateLayer,
-    updateSelectedLayer,
-    setActiveLayerId,
-    handleModeSwitch,
-    resetLayerToOriginal,
-    setIsProcessing,
-    setError,
-    toggleLayerVisibility
-  } = useAppState();
+const TOOL_CATEGORIES: { id: ToolCategory; label: string; icon: any }[] = [
+  { id: 'CORE', label: 'Core Tools', icon: Sliders },
+  { id: 'AUTOMOTIVE', label: 'Automotive', icon: Car },
+  { id: 'STYLE', label: 'Style Presets', icon: Palette },
+  { id: 'BACKGROUND', label: 'Subject/BG', icon: ImageIcon },
+  { id: 'FRAMING', label: 'Framing', icon: Crop },
+  { id: 'REPAIR', label: 'Repair/Restore', icon: Wrench },
+  { id: 'MASKING', label: 'Masking', icon: BoxSelect },
+  { id: 'EXPORT', label: 'Export', icon: Download },
+];
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const workspaceRef = useRef<HTMLDivElement>(null);
+const PRESETS = [
+  { id: 'coastal_minimalist', label: 'Coastal Minimalist', description: 'Cool whites, soft blues, matte highlights.' },
+  { id: 'high_contrast_street', label: 'High Contrast Street', description: 'Bold contrast and crisp micro-detail.' },
+  { id: 'film_939', label: 'Film 939', description: 'Warm tones, subtle grain, soft halation.' },
+  { id: 'matte_fade', label: 'Matte Fade', description: 'Soft matte finish with lifted shadows.' },
+  { id: 'vivid_pop', label: 'Vivid Pop', description: 'Natural boost to vibrancy and clarity.' },
+];
 
-  // --- Handlers ---
+export default function App() {
+  const [image, setImage] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>('AUTO');
+  const [activeCategory, setActiveCategory] = useState<ToolCategory>('CORE');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  const [history, setHistory] = useState<{
+    past: ToolSettings[];
+    present: ToolSettings;
+    future: ToolSettings[];
+  }>({
+    past: [],
+    present: DEFAULT_SETTINGS,
+    future: [],
+  });
 
-  /**
-   * Handles local image file uploads.
-   * Captures image dimensions at import time to optimize future canvas operations.
-   */
-  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const settings = history.present;
 
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const dataUrl = event.target?.result as string;
-        
-        const img = new Image();
-        img.onload = () => {
-          const newLayer: Layer = {
-            id: Date.now().toString(),
-            url: dataUrl,
-            originalUrl: dataUrl,
-            opacity: 100,
-            isVisible: true,
-            name: file.name,
-            blendMode: 'normal',
-            x: 0,
-            y: 0,
-            scale: 1,
-            rotation: 0,
-            width: img.naturalWidth,
-            height: img.naturalHeight,
-            filters: {
-              brightness: 100,
-              contrast: 100,
-              saturation: 100,
-              'hue-rotate': 0,
-              blur: 0,
-              sepia: 0,
-              grayscale: 0
-            }
-          };
-          addToHistory([newLayer, ...state.layers], newLayer.id, 'Import Image');
-          setIsProcessing(false);
-        };
-        img.onerror = () => {
-          setError('Failed to decode image dimensions.');
-          setIsProcessing(false);
-        };
-        img.src = dataUrl;
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      setError('Failed to upload image.');
-      setIsProcessing(false);
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (file) {
+      const objectUrl = URL.createObjectURL(file);
+      setImage(objectUrl);
+      setHistory({ past: [], present: DEFAULT_SETTINGS, future: [] });
+      
+      return () => URL.revokeObjectURL(objectUrl);
     }
-  }, [state.layers, addToHistory, setIsProcessing, setError]);
+  }, []);
 
-  /**
-   * Triggers neural image generation via Gemini API.
-   */
-  const handleGenerate = useCallback(async () => {
-    if (!prompt.trim()) return;
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'image/*': [] },
+    multiple: false,
+    noClick: !!image,
+  } as any);
+
+  const updateSetting = (key: keyof ToolSettings, value: any) => {
+    setHistory(prev => ({
+      past: [...prev.past, prev.present],
+      present: { ...prev.present, [key]: value },
+      future: [],
+    }));
+    
+    if (mode === 'AUTO') {
+      setIsProcessing(true);
+      setTimeout(() => setIsProcessing(false), 500);
+    }
+  };
+
+  const undo = () => {
+    setHistory(prev => {
+      if (prev.past.length === 0) return prev;
+      const previous = prev.past[prev.past.length - 1];
+      const newPast = prev.past.slice(0, prev.past.length - 1);
+      return {
+        past: newPast,
+        present: previous,
+        future: [prev.present, ...prev.future],
+      };
+    });
+  };
+
+  const redo = () => {
+    setHistory(prev => {
+      if (prev.future.length === 0) return prev;
+      const next = prev.future[0];
+      const newFuture = prev.future.slice(1);
+      return {
+        past: [...prev.past, prev.present],
+        present: next,
+        future: newFuture,
+      };
+    });
+  };
+
+  const clearImage = () => {
+    setImage(null);
+    setHistory({ past: [], present: DEFAULT_SETTINGS, future: [] });
+  };
+
+  const startBlankCanvas = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1920;
+    canvas.height = 1080;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      setImage(canvas.toDataURL('image/jpeg'));
+      setHistory({ past: [], present: DEFAULT_SETTINGS, future: [] });
+    }
+  };
+
+  const handleExport = async () => {
+    if (!image) return;
     
     setIsProcessing(true);
-    setError(null);
     
     try {
-      const result = await generateImage(prompt, state.targetResolution);
-      
-      const dim = state.targetResolution === '4K' ? 4096 : state.targetResolution === '2K' ? 2048 : 1024;
-      
-      const newLayer: Layer = {
-        id: Date.now().toString(),
-        url: result,
-        originalUrl: result,
-        opacity: 100,
-        isVisible: true,
-        name: `AI: ${prompt.slice(0, 20)}...`,
-        blendMode: 'normal',
-        x: 0,
-        y: 0,
-        scale: 1,
-        rotation: 0,
-        width: dim,
-        height: dim,
-        neuralPrompt: prompt,
-        filters: {
-          brightness: 100,
-          contrast: 100,
-          saturation: 100,
-          'hue-rotate': 0,
-          blur: 0,
-          sepia: 0,
-          grayscale: 0
-        }
-      };
-      
-      addToHistory([newLayer, ...state.layers], newLayer.id, 'AI Generate');
-      setPrompt('');
-    } catch (err: any) {
-      setError(err.message || 'Neural synthesis failed. Please try again.');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [prompt, state.targetResolution, state.layers, addToHistory, setPrompt, setIsProcessing, setError]);
-
-  /**
-   * Adjusts color properties of the selected layer.
-   * Uses optimistic UI updates for immediate feedback.
-   */
-  const handleColorAdjust = useCallback(async (type: string, value: number) => {
-    const activeLayer = state.layers.find(l => l.id === state.activeLayerId);
-    if (!activeLayer) return;
-
-    const newFilters = { ...activeLayer.filters, [type]: value };
-    
-    // Optimistically update UI
-    updateSelectedLayer({ filters: newFilters });
-
-    try {
-      const filteredUrl = await applyFiltersToImage(activeLayer.originalUrl, newFilters);
-      updateSelectedLayer({ url: filteredUrl });
-    } catch (err) {
-      console.error('Filter application failed:', err);
-    }
-  }, [state.layers, state.activeLayerId, updateSelectedLayer]);
-
-  /**
-   * Applies artistic style transfer to the selected layer.
-   */
-  const handleStyleTransfer = useCallback(async (style: string) => {
-    const activeLayer = state.layers.find(l => l.id === state.activeLayerId);
-    if (!activeLayer) return;
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      const styledUrl = await generateImage(
-        `Apply ${style} artistic style to this image while preserving its core structure and content.`,
-        state.targetResolution,
-        activeLayer.url
-      );
-      
-      const newLayer: Layer = {
-        id: Date.now().toString(),
-        url: styledUrl,
-        originalUrl: styledUrl,
-        opacity: 100,
-        isVisible: true,
-        name: `${style}: ${activeLayer.name}`,
-        blendMode: 'normal',
-        x: 0,
-        y: 0,
-        scale: 1,
-        rotation: 0,
-        width: activeLayer.width,
-        height: activeLayer.height,
-        filters: { ...activeLayer.filters }
-      };
-      
-      addToHistory([newLayer, ...state.layers], newLayer.id, `Style Transfer: ${style}`);
-    } catch (err: any) {
-      setError(err.message || 'Style transfer failed.');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [state.layers, state.activeLayerId, state.targetResolution, addToHistory, setIsProcessing, setError]);
-
-  /**
-   * Resizes and expands the image for social media aspect ratios using generative fill.
-   */
-  const handleSocialResize = useCallback(async (platform: string) => {
-    const activeLayer = state.layers.find(l => l.id === state.activeLayerId);
-    if (!activeLayer) return;
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      const resizedUrl = await generateImage(
-        `Expand and resize this image for ${platform.replace('_', ' ')} aspect ratio. Use generative fill to complete the edges naturally.`,
-        state.targetResolution,
-        activeLayer.url
-      );
-      
-      let w = 1024, h = 1024;
-      if (platform.includes('story')) { w = 1080; h = 1920; }
-      else if (platform.includes('thumb') || platform.includes('twitter')) { w = 1920; h = 1080; }
-      else if (platform.includes('banner')) { w = 1584; h = 396; }
-
-      const newLayer: Layer = {
-        id: Date.now().toString(),
-        url: resizedUrl,
-        originalUrl: resizedUrl,
-        opacity: 100,
-        isVisible: true,
-        name: `${platform.split('_')[0]} Resize`,
-        blendMode: 'normal',
-        x: 0,
-        y: 0,
-        scale: 1,
-        rotation: 0,
-        width: w,
-        height: h,
-        filters: { ...activeLayer.filters }
-      };
-      
-      addToHistory([newLayer, ...state.layers], newLayer.id, `Social Resize: ${platform}`);
-    } catch (err: any) {
-      setError(err.message || 'Social resize failed.');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [state.layers, state.activeLayerId, state.targetResolution, addToHistory, setIsProcessing, setError]);
-
-  /**
-   * Crops the selected layer based on the workspace overlay.
-   */
-  const handleCrop = useCallback(async () => {
-    const activeLayer = state.layers.find(l => l.id === state.activeLayerId);
-    if (!activeLayer || !imageRef.current) return;
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas context failed');
-
       const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = image;
+      
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = reject;
-        img.src = activeLayer.url;
       });
-
-      const scaleX = img.width / cropBounds.width;
-      const scaleY = img.height / cropBounds.height;
-
-      const cropX = cropRect.x * (cropBounds.width / 100) * scaleX;
-      const cropY = cropRect.y * (cropBounds.height / 100) * scaleY;
-      const cropW = cropRect.width * (cropBounds.width / 100) * scaleX;
-      const cropH = cropRect.height * (cropBounds.height / 100) * scaleY;
-
-      canvas.width = cropW;
-      canvas.height = cropH;
-      ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-
-      const croppedUrl = canvas.toDataURL('image/png', 1.0);
       
-      const newLayer: Layer = {
-        id: Date.now().toString(),
-        url: croppedUrl,
-        originalUrl: croppedUrl,
-        opacity: 100,
-        isVisible: true,
-        name: `Crop: ${activeLayer.name}`,
-        blendMode: 'normal',
-        x: 0,
-        y: 0,
-        scale: 1,
-        rotation: 0,
-        width: cropW,
-        height: cropH,
-        filters: { ...activeLayer.filters }
-      };
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
       
-      addToHistory([newLayer, ...state.layers], newLayer.id, 'Crop Image');
-      handleModeSwitch(EditMode.TRANSFORM);
-    } catch (err) {
-      setError('Crop failed.');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      const { exposure, contrast, saturation, bokeh, whiteBalance, sharpen, exportFormat, exportQuality } = settings;
+      let filters = [];
+      if (exposure !== 0) filters.push(`brightness(${100 + exposure}%)`);
+      if (contrast !== 0) filters.push(`contrast(${100 + contrast}%)`);
+      if (saturation !== 0) filters.push(`saturate(${100 + saturation}%)`);
+      if (bokeh !== 0) filters.push(`blur(${bokeh / 10}px)`);
+      if (whiteBalance !== 0) filters.push(`hue-rotate(${whiteBalance}deg)`);
+      if (sharpen > 0) filters.push(`contrast(${100 + sharpen / 2}%)`);
+      
+      ctx.filter = filters.join(' ');
+      
+      if (settings.straighten !== 0) {
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((settings.straighten * Math.PI) / 180);
+        ctx.translate(-canvas.width / 2, -canvas.height / 2);
+      }
+      
+      ctx.drawImage(img, 0, 0);
+      
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const ext = exportFormat.split('/')[1];
+        link.download = `prot0-neural-export-${Date.now()}.${ext}`;
+        link.href = url;
+        link.click();
+        
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+      }, exportFormat, exportQuality / 100);
+    } catch (error) {
+      console.error('Export failed:', error);
     } finally {
       setIsProcessing(false);
     }
-  }, [state.layers, state.activeLayerId, cropRect, cropBounds, addToHistory, handleModeSwitch, setIsProcessing, setError]);
+  };
 
-  /**
-   * Creates a collage from visible layers.
-   */
-  const handleCollage = useCallback(async (layout: string) => {
-    const visibleLayers = state.layers.filter(l => l.isVisible);
-    if (visibleLayers.length < 2) {
-      setError('Need at least 2 visible layers for a collage.');
-      return;
-    }
-
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      const collageUrl = await createCollage(visibleLayers, layout as any);
-      const newLayer: Layer = {
-        id: Date.now().toString(),
-        url: collageUrl,
-        originalUrl: collageUrl,
-        opacity: 100,
-        isVisible: true,
-        name: `Collage: ${layout}`,
-        blendMode: 'normal',
-        x: 0,
-        y: 0,
-        scale: 1,
-        rotation: 0,
-        width: 2000,
-        height: 2000,
-        filters: {
-          brightness: 100,
-          contrast: 100,
-          saturation: 100,
-          'hue-rotate': 0,
-          blur: 0,
-          sepia: 0,
-          grayscale: 0
-        }
-      };
-      addToHistory([newLayer, ...state.layers], newLayer.id, 'Create Collage');
-    } catch (err) {
-      setError('Collage creation failed.');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [state.layers, addToHistory, setIsProcessing, setError]);
-
-  /**
-   * Merges all visible layers into a single composition.
-   */
-  const handleMergeLayers = useCallback(async () => {
-    if (state.layers.length < 2) return;
+  const cssFilters = useMemo(() => {
+    const { exposure, contrast, saturation, sharpen, noiseReduction, whiteBalance, bokeh } = settings;
+    let filters = [];
+    if (exposure !== 0) filters.push(`brightness(${100 + exposure}%)`);
+    if (contrast !== 0) filters.push(`contrast(${100 + contrast}%)`);
+    if (saturation !== 0) filters.push(`saturate(${100 + saturation}%)`);
+    if (bokeh !== 0) filters.push(`blur(${bokeh / 10}px)`);
+    if (whiteBalance !== 0) filters.push(`hue-rotate(${whiteBalance}deg)`);
+    // Simulation of sharpen/noise reduction via contrast/blur
+    if (sharpen > 0) filters.push(`contrast(${100 + sharpen / 2}%)`);
     
-    setIsProcessing(true);
-    setError(null);
-    
-    try {
-      const maxWidth = Math.max(...state.layers.map(l => l.width || 0));
-      const maxHeight = Math.max(...state.layers.map(l => l.height || 0));
-      const mergedUrl = await mergeLayersToDataUrl(state.layers, maxWidth, maxHeight);
-      
-      const newLayer: Layer = {
-        id: Date.now().toString(),
-        url: mergedUrl,
-        originalUrl: mergedUrl,
-        opacity: 100,
-        isVisible: true,
-        name: 'Merged Composition',
-        blendMode: 'normal',
-        x: 0,
-        y: 0,
-        scale: 1,
-        rotation: 0,
-        width: maxWidth,
-        height: maxHeight,
-        filters: {
-          brightness: 100,
-          contrast: 100,
-          saturation: 100,
-          'hue-rotate': 0,
-          blur: 0,
-          sepia: 0,
-          grayscale: 0
-        }
-      };
-      
-      addToHistory([newLayer, ...state.layers], newLayer.id, 'Merge Layers');
-    } catch (err) {
-      setError('Layer merge failed.');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [state.layers, addToHistory, setIsProcessing, setError]);
+    return filters.join(' ');
+  }, [settings]);
 
-  /**
-   * Exports the final composition as a downloadable image.
-   */
-  const handleExport = useCallback(async () => {
-    if (state.layers.length === 0) return;
-    
-    setIsProcessing(true);
-    try {
-      const maxWidth = Math.max(...state.layers.map(l => l.width || 0));
-      const maxHeight = Math.max(...state.layers.map(l => l.height || 0));
-      const finalUrl = await mergeLayersToDataUrl(state.layers, maxWidth, maxHeight);
-      const link = document.createElement('a');
-      link.href = finalUrl;
-      link.download = `neural-canvas-export-${Date.now()}.png`;
-      link.click();
-    } catch (err) {
-      setError('Export failed.');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [state.layers, setIsProcessing, setError]);
+  const renderToolControls = () => {
+    switch (activeCategory) {
+      case 'CORE':
+        return (
+          <div className="space-y-6">
+            <ControlGroup label="Exposure" value={settings.exposure} min={-100} max={100} onChange={(v) => updateSetting('exposure', v)} icon={Sun} />
+            <ControlGroup label="Contrast" value={settings.contrast} min={-100} max={100} onChange={(v) => updateSetting('contrast', v)} icon={Contrast} />
+            <ControlGroup label="Saturation" value={settings.saturation} min={-100} max={100} onChange={(v) => updateSetting('saturation', v)} icon={Droplets} />
+            <ControlGroup label="Sharpen" value={settings.sharpen} min={0} max={100} onChange={(v) => updateSetting('sharpen', v)} icon={Focus} />
+            <ControlGroup label="Noise Reduction" value={settings.noiseReduction} min={0} max={100} onChange={(v) => updateSetting('noiseReduction', v)} icon={Wind} />
+            <ControlGroup label="White Balance" value={settings.whiteBalance} min={-100} max={100} onChange={(v) => updateSetting('whiteBalance', v)} icon={Thermometer} />
+          </div>
+        );
+      case 'AUTOMOTIVE':
+        return (
+          <div className="space-y-6">
+            <ControlGroup label="Paint Gloss Boost" value={settings.paintGloss} min={0} max={100} onChange={(v) => updateSetting('paintGloss', v)} icon={Sparkles} />
+            <ControlGroup label="Wheel Detail" value={settings.wheelDetail} min={0} max={100} onChange={(v) => updateSetting('wheelDetail', v)} icon={Focus} />
+            <ControlGroup label="Night Meet Enhance" value={settings.nightEnhance} min={0} max={100} onChange={(v) => updateSetting('nightEnhance', v)} icon={Moon} />
+            <ControlGroup label="Reflection Clean" value={settings.reflectionClean} min={0} max={100} onChange={(v) => updateSetting('reflectionClean', v)} icon={Eye} />
+            <ControlGroup label="Showroom Finish" value={settings.showroomFinish} min={0} max={100} onChange={(v) => updateSetting('showroomFinish', v)} icon={Camera} />
+          </div>
+        );
+      case 'STYLE':
+        return (
+          <div className="space-y-3">
+            {PRESETS.map(preset => (
+              <button
+                key={preset.id}
+                onClick={() => updateSetting('preset', preset.id)}
+                className={cn(
+                  "w-full text-left p-3 rounded-lg border transition-all duration-200",
+                  settings.preset === preset.id 
+                    ? "bg-accent text-bg border-accent" 
+                    : "bg-surface-hover border-border hover:border-accent-muted"
+                )}
+              >
+                <div className="font-medium text-sm">{preset.label}</div>
+                <div className={cn("text-[10px] mt-1", settings.preset === preset.id ? "text-bg/70" : "text-accent-muted")}>
+                  {preset.description}
+                </div>
+              </button>
+            ))}
+          </div>
+        );
+      case 'BACKGROUND':
+        return (
+          <div className="space-y-6">
+            <ControlGroup label="Background Simplify" value={settings.bgSimplify} min={0} max={100} onChange={(v) => updateSetting('bgSimplify', v)} icon={Eraser} />
+            <ControlGroup label="Subject Pop" value={settings.subjectPop} min={0} max={100} onChange={(v) => updateSetting('subjectPop', v)} icon={Maximize2} />
+            <ControlGroup label="Bokeh Boost" value={settings.bokeh} min={0} max={100} onChange={(v) => updateSetting('bokeh', v)} icon={Focus} />
+          </div>
+        );
+      case 'FRAMING':
+        return (
+          <div className="space-y-6">
+            <ControlGroup label="Straighten" value={settings.straighten} min={-45} max={45} onChange={(v) => updateSetting('straighten', v)} icon={Undo2} />
+            <ControlGroup label="Perspective" value={settings.perspective} min={-100} max={100} onChange={(v) => updateSetting('perspective', v)} icon={Maximize2} />
+            <div className="pt-4 border-t border-border">
+              <span className="prot0-label">Aspect Ratio</span>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {['1:1', '4:5', '16:9', '9:16'].map(ratio => (
+                  <button
+                    key={ratio}
+                    onClick={() => updateSetting('crop', ratio)}
+                    className={cn(
+                      "py-2 rounded border text-xs font-mono",
+                      settings.crop === ratio ? "bg-accent text-bg border-accent" : "bg-surface-hover border-border"
+                    )}
+                  >
+                    {ratio}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      case 'REPAIR':
+        return (
+          <div className="space-y-6">
+            <ControlGroup label="Compression Cleanup" value={settings.compressionCleanup} min={0} max={100} onChange={(v) => updateSetting('compressionCleanup', v)} icon={Wind} />
+            <ControlGroup label="Low Quality Restore" value={settings.lowQualityRestore} min={0} max={100} onChange={(v) => updateSetting('lowQualityRestore', v)} icon={Zap} />
+            <ControlGroup label="Reflection Reduction" value={settings.reflectionReduction} min={0} max={100} onChange={(v) => updateSetting('reflectionReduction', v)} icon={Eye} />
+            <ControlGroup label="Glare Reduction" value={settings.glareReduction} min={0} max={100} onChange={(v) => updateSetting('glareReduction', v)} icon={Sun} />
+          </div>
+        );
+      case 'MASKING':
+        return (
+          <div className="space-y-6">
+            <ControlGroup label="Selective Edit" value={settings.selectiveEdit} min={0} max={100} onChange={(v) => updateSetting('selectiveEdit', v)} icon={BoxSelect} />
+            <ControlGroup label="Sky Replace" value={settings.skyReplace} min={0} max={100} onChange={(v) => updateSetting('skyReplace', v)} icon={Cloud} />
+            <ControlGroup label="Skin Cleanup" value={settings.skinCleanup} min={0} max={100} onChange={(v) => updateSetting('skinCleanup', v)} icon={User} />
+          </div>
+        );
+      case 'EXPORT':
+        return (
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <span className="prot0-label">Format</span>
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {['image/jpeg', 'image/png', 'image/webp'].map(format => (
+                  <button
+                    key={format}
+                    onClick={() => updateSetting('exportFormat', format)}
+                    className={cn(
+                      "py-2 rounded border text-[10px] font-mono",
+                      settings.exportFormat === format ? "bg-accent text-bg border-accent" : "bg-surface-hover border-border"
+                    )}
+                  >
+                    {format.split('/')[1].toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-  // --- Render ---
+            {(settings.exportFormat === 'image/jpeg' || settings.exportFormat === 'image/webp') && (
+              <ControlGroup 
+                label="Export Quality" 
+                value={settings.exportQuality} 
+                min={1} 
+                max={100} 
+                onChange={(v) => updateSetting('exportQuality', v)} 
+                icon={Settings2} 
+              />
+            )}
+
+            <div className="pt-4 border-t border-border space-y-4">
+              <ExportButton 
+                label="Download Image" 
+                icon={Download} 
+                description={`Export as ${settings.exportFormat.split('/')[1].toUpperCase()}`} 
+                onClick={handleExport}
+                disabled={isProcessing}
+              />
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className="flex h-screen bg-[#050505] text-white font-sans overflow-hidden selection:bg-fuchsia-500/30">
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleFileUpload} 
-        accept="image/*" 
-        className="hidden" 
-      />
-
-      <Sidebar 
-        activeMode={state.activeMode} 
-        onModeSwitch={handleModeSwitch} 
-      />
-
-      <main className="flex-1 flex flex-col relative">
-        <header className="h-20 border-b border-white/5 flex items-center justify-between px-8 bg-black/20 backdrop-blur-xl z-50">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-fuchsia-600 to-purple-600 flex items-center justify-center shadow-lg shadow-fuchsia-600/20">
-              <Sparkles className="w-5 h-5 text-white" />
+    <div className="flex h-screen bg-bg text-accent font-sans overflow-hidden flex-col md:flex-row">
+      {/* Left Sidebar - Categories (Bottom bar on mobile) */}
+      <aside className="w-full md:w-16 h-16 md:h-full border-t md:border-t-0 md:border-r border-border flex flex-row md:flex-col items-center justify-around md:justify-start py-0 md:py-6 gap-0 md:gap-6 bg-surface z-30 order-last md:order-first">
+        <div className="hidden md:flex w-10 h-10 bg-accent text-bg rounded-xl items-center justify-center font-black text-xl mb-4">
+          P0
+        </div>
+        {TOOL_CATEGORIES.map(cat => (
+          <button
+            key={cat.id}
+            onClick={() => setActiveCategory(cat.id)}
+            className={cn(
+              "p-3 rounded-xl transition-all duration-200 group relative",
+              activeCategory === cat.id ? "bg-accent text-bg" : "text-accent-muted hover:text-accent hover:bg-surface-hover"
+            )}
+          >
+            <cat.icon size={20} />
+            <div className="absolute left-full ml-4 px-2 py-1 bg-surface border border-border rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+              {cat.label}
             </div>
-            <div>
-              <h1 className="text-sm font-black uppercase tracking-[0.2em]">Neural Canvas</h1>
-              <p className="text-[8px] text-white/30 font-black uppercase tracking-widest">v2.5 Professional</p>
+          </button>
+        ))}
+        <div className="hidden md:flex mt-auto flex-col gap-4">
+          <button className="p-3 text-accent-muted hover:text-accent group relative">
+            <Settings2 size={20} />
+            <div className="absolute left-full ml-4 px-2 py-1 bg-surface border border-border rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+              Settings
+            </div>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col relative overflow-hidden">
+        {/* Top Header */}
+        <header className="h-14 border-b border-border flex items-center justify-between px-4 md:px-6 bg-surface/80 backdrop-blur-md z-20">
+          <div className="flex items-center gap-2 md:gap-4">
+            <span className="text-[10px] md:text-xs font-mono tracking-widest uppercase text-accent-muted truncate max-w-[120px] md:max-w-none">Prot0 Neural v1.0</span>
+            <div className="h-4 w-[1px] bg-border hidden sm:block" />
+            <div className="flex items-center gap-1 bg-bg rounded-full p-0.5 md:p-1 border border-border">
+              <button
+                onClick={() => setMode('AUTO')}
+                className={cn(
+                  "px-2 md:px-4 py-0.5 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold tracking-widest transition-all",
+                  mode === 'AUTO' ? "bg-accent text-bg" : "text-accent-muted hover:text-accent"
+                )}
+              >
+                AUTO
+              </button>
+              <button
+                onClick={() => setMode('PRO')}
+                className={cn(
+                  "px-2 md:px-4 py-0.5 md:py-1 rounded-full text-[8px] md:text-[10px] font-bold tracking-widest transition-all",
+                  mode === 'PRO' ? "bg-accent text-bg" : "text-accent-muted hover:text-accent"
+                )}
+              >
+                PRO
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-white/5 rounded-2xl p-1 border border-white/5">
-              <button 
-                onClick={undo}
-                disabled={state.historyIndex >= state.history.length - 1}
-                className="p-2.5 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all disabled:opacity-20"
-                title="Undo (Ctrl+Z)"
-              >
-                <History className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={redo}
-                disabled={state.historyIndex === 0}
-                className="p-2.5 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all disabled:opacity-20"
-                title="Redo (Ctrl+Y)"
-              >
-                <RotateCcw className="w-4 h-4 scale-x-[-1]" />
-              </button>
-            </div>
+          <div className="flex items-center gap-2 md:gap-3">
             <button 
-              onClick={() => setShowLayers(!showLayers)}
-              className={`p-3 rounded-2xl transition-all ${showLayers ? 'bg-fuchsia-500 text-white' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
+              onClick={undo} 
+              disabled={history.past.length === 0}
+              className="prot0-button prot0-button-secondary py-1 px-2 md:py-1.5 md:px-3 text-[10px] md:text-xs disabled:opacity-30 group relative"
             >
-              <Layers className="w-5 h-5" />
+              <Undo2 size={12} className="md:w-3.5 md:h-3.5" />
+              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                Undo
+              </div>
             </button>
             <button 
-              onClick={() => fileInputRef.current?.click()}
-              className="px-6 py-3 bg-white text-black rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all flex items-center gap-2"
+              onClick={redo} 
+              disabled={history.future.length === 0}
+              className="prot0-button prot0-button-secondary py-1 px-2 md:py-1.5 md:px-3 text-[10px] md:text-xs disabled:opacity-30 group relative"
             >
-              <Plus className="w-4 h-4" /> Import
+              <Redo2 size={12} className="md:w-3.5 md:h-3.5" />
+              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                Redo
+              </div>
+            </button>
+            <button onClick={clearImage} className="prot0-button prot0-button-secondary py-1 px-2 md:py-1.5 md:px-3 text-[10px] md:text-xs group relative">
+              <Trash2 size={12} className="md:w-3.5 md:h-3.5" /> <span className="hidden sm:inline">Clear</span>
+              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                Clear Image
+              </div>
+            </button>
+            <button 
+              onClick={handleExport}
+              disabled={!image}
+              className="prot0-button prot0-button-primary py-1 px-3 md:py-1.5 md:px-4 text-[10px] md:text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed group relative"
+            >
+              <Download size={12} className="md:w-3.5 md:h-3.5" /> <span className="hidden sm:inline">Export</span>
+              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                Export Image
+              </div>
             </button>
           </div>
         </header>
 
-        <Workspace 
-          layers={state.layers}
-          activeLayerId={state.activeLayerId}
-          activeMode={state.activeMode}
-          targetResolution={state.targetResolution}
-          isComparing={isComparing}
-          cropRect={cropRect}
-          setCropRect={setCropRect}
-          setCropBounds={setCropBounds}
-          updateSelectedLayer={updateSelectedLayer}
-          resetLayerToOriginal={resetLayerToOriginal}
-          setIsComparing={setIsComparing}
-          setTargetResolution={(res) => setState(prev => ({ ...prev, targetResolution: res }))}
-          handleModeSwitch={handleModeSwitch}
-          onImportClick={() => fileInputRef.current?.click()}
-          imageRef={imageRef}
-          workspaceRef={workspaceRef}
-        />
-
-        <AnimatePresence>
-          {state.error && (
-            <motion.div 
-              initial={{ opacity: 0, y: 20, x: '-50%' }}
-              animate={{ opacity: 1, y: 0, x: '-50%' }}
-              exit={{ opacity: 0, y: 20, x: '-50%' }}
-              className="absolute bottom-32 left-1/2 flex items-center gap-3 bg-red-500/10 border border-red-500/20 backdrop-blur-2xl px-6 py-4 rounded-2xl text-red-400 text-xs font-bold z-[200]"
-            >
-              <AlertCircle className="w-4 h-4" />
-              {state.error}
-              <button onClick={() => setError(null)} className="ml-4 hover:text-white transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </motion.div>
+        {/* Viewport */}
+        <div 
+          {...getRootProps()} 
+          className={cn(
+            "flex-1 flex items-center justify-center p-8 transition-colors duration-300 relative",
+            isDragActive ? "bg-accent/5" : "bg-bg"
           )}
-        </AnimatePresence>
+        >
+          {/* Neural Grid Background */}
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
+               style={{ 
+                 backgroundImage: `linear-gradient(var(--color-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-border) 1px, transparent 1px)`,
+                 backgroundSize: '40px 40px'
+               }} 
+          />
+          
+          <input {...getInputProps()} />
+          
+          {!image ? (
+            <div className="text-center space-y-4 max-w-md">
+              <div className="w-20 h-20 border-2 border-dashed border-border rounded-3xl flex items-center justify-center mx-auto text-accent-muted group-hover:border-accent transition-colors">
+                <ImageIcon size={32} />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold tracking-tight">Drop your masterpiece</h2>
+                <p className="text-accent-muted text-sm mt-1">RAW, JPEG, PNG supported. Neural engine ready.</p>
+              </div>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-4">
+                <button className="prot0-button prot0-button-primary px-8">
+                  Select File
+                </button>
+                <button 
+                  onClick={startBlankCanvas}
+                  className="prot0-button prot0-button-secondary px-8"
+                >
+                  Blank Canvas
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="relative group max-w-full max-h-full">
+              <motion.div 
+                layoutId="image-container"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="relative shadow-2xl rounded-sm overflow-hidden border border-border bg-surface"
+              >
+                <img 
+                  src={image} 
+                  alt="Preview" 
+                  className="max-w-full max-h-[75vh] object-contain transition-all duration-500"
+                  style={{ 
+                    filter: cssFilters,
+                    transform: `rotate(${settings.straighten}deg) scale(${1 + Math.abs(settings.perspective) / 500})`
+                  }}
+                />
+                
+                {/* Neural Processing Overlay */}
+                <AnimatePresence>
+                  {isProcessing && (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute inset-0 bg-bg/20 backdrop-blur-[2px] flex items-center justify-center z-10"
+                    >
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="w-12 h-12 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                        <span className="text-[10px] font-mono tracking-[0.3em] uppercase animate-pulse">Neural Processing</span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+
+              {/* Viewport Toolbar */}
+              <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-surface/90 backdrop-blur-md border border-border p-1.5 rounded-full shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <ViewportTool icon={Undo2} label="Undo" />
+                <ViewportTool icon={Redo2} label="Redo" />
+                <div className="w-[1px] h-4 bg-border mx-1" />
+                <ViewportTool icon={Maximize2} label="Full Screen" />
+                <ViewportTool icon={Crop} label="Crop" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Status Bar */}
+        <footer className="h-8 border-t border-border bg-surface flex items-center justify-between px-4 text-[9px] font-mono text-accent-muted uppercase tracking-widest">
+          <div className="flex items-center gap-4">
+            <span>Status: {isProcessing ? 'Processing' : 'Ready'}</span>
+            <span>Engine: Prot0 Neural v1.0</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span>Mode: {mode}</span>
+            <span>Resolution: {image ? '3840 x 2160' : 'N/A'}</span>
+          </div>
+        </footer>
       </main>
 
-      <div className="flex h-full">
-        <AnimatePresence>
-          {showLayers && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 320, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              className="overflow-hidden"
-            >
-              <LayerPanelContent 
-                layers={state.layers}
-                activeLayerId={state.activeLayerId}
-                onSelectLayer={setActiveLayerId}
-                onToggleVisibility={toggleLayerVisibility}
-                onDeleteLayer={deleteLayer}
-                onReorderLayers={(layers) => addToHistory(layers, state.activeLayerId, 'Reorder Layers')}
-                onAddLayer={() => fileInputRef.current?.click()}
-                onUpdateLayer={updateLayer}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Right Sidebar - Controls (Overlay on mobile) */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.aside 
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            className="fixed md:relative right-0 top-0 bottom-0 w-72 md:w-80 border-l border-border bg-surface flex flex-col z-40 md:z-30 shadow-2xl md:shadow-none"
+          >
+            <div className="p-6 flex items-center justify-between border-b border-border">
+              <h3 className="text-xs font-bold tracking-widest uppercase">{activeCategory}</h3>
+              <button onClick={() => setSidebarOpen(false)} className="text-accent-muted hover:text-accent group relative">
+                <ChevronRight size={16} />
+                <div className="absolute bottom-full mb-2 right-0 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+                  Close Sidebar
+                </div>
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+              {renderToolControls()}
+            </div>
 
-        <ContextualPanel 
-          activeMode={state.activeMode}
-          activeLayerId={state.activeLayerId}
-          layers={state.layers}
-          isProcessing={state.isProcessing}
-          prompt={prompt}
-          setPrompt={setPrompt}
-          handleGenerate={handleGenerate}
-          handleColorAdjust={handleColorAdjust}
-          handleStyleTransfer={handleStyleTransfer}
-          handleSocialResize={handleSocialResize}
-          handleCrop={handleCrop}
-          handleCollage={handleCollage}
-          handleExport={handleExport}
-          handleMergeLayers={handleMergeLayers}
-          updateSelectedLayer={updateSelectedLayer}
-          onCancel={() => handleModeSwitch(EditMode.TRANSFORM)}
-        />
-      </div>
+            <div className="p-6 border-t border-border bg-bg/50">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[10px] font-mono text-accent-muted uppercase tracking-widest">History</span>
+                <span className="text-[10px] font-mono text-accent-muted">08 Steps</span>
+              </div>
+              <div className="space-y-2">
+                <HistoryItem label="Import Original" active />
+                <HistoryItem label="Neural Exposure" />
+                <HistoryItem label="Gloss Boost" />
+              </div>
+            </div>
+          </motion.aside>
+        )}
+      </AnimatePresence>
+
+      {!sidebarOpen && (
+        <button 
+          onClick={() => setSidebarOpen(true)}
+          className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-12 bg-surface border-l border-y border-border rounded-l-md flex items-center justify-center text-accent-muted hover:text-accent z-40 group relative"
+        >
+          <ChevronLeft size={16} />
+          <div className="absolute bottom-full mb-2 right-0 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+            Open Sidebar
+          </div>
+        </button>
+      )}
     </div>
   );
-};
+}
 
-export default App;
+const ControlGroup = React.memo(({ label, value, min, max, onChange, icon: Icon }: { label: string, value: number, min: number, max: number, onChange: (v: number) => void, icon: any }) => {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 group relative">
+          <Icon size={14} className="text-accent-muted" />
+          <div className="absolute bottom-full mb-2 left-0 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50">
+            {label}
+          </div>
+          <span className="prot0-label mb-0">{label}</span>
+        </div>
+        <span className="text-[10px] font-mono text-accent">{value > 0 ? `+${value}` : value}</span>
+      </div>
+      <input 
+        type="range" 
+        min={min} 
+        max={max} 
+        value={value} 
+        onChange={(e) => onChange(parseInt(e.target.value))}
+        className="prot0-slider"
+      />
+    </div>
+  );
+});
+
+const ExportButton = React.memo(({ label, icon: Icon, description, onClick, disabled }: { label: string, icon: any, description: string, onClick?: () => void, disabled?: boolean }) => {
+  return (
+    <button 
+      onClick={onClick}
+      disabled={disabled}
+      className="w-full group text-left p-4 rounded-xl bg-surface-hover border border-border hover:border-accent-muted transition-all duration-300 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <div className="flex items-center gap-3 mb-1">
+        <div className="p-2 rounded-lg bg-bg text-accent-muted group-hover:text-accent transition-colors relative group/icon">
+          <Icon size={18} />
+          <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover/icon:opacity-100 pointer-events-none transition-opacity z-50">
+            {label}
+          </div>
+        </div>
+        <span className="font-bold text-sm tracking-tight">{label}</span>
+      </div>
+      <p className="text-[10px] text-accent-muted ml-11">{description}</p>
+    </button>
+  );
+});
+
+function ViewportTool({ icon: Icon, label }: { icon: any, label: string }) {
+  return (
+    <button className="p-2 text-accent-muted hover:text-accent hover:bg-white/10 rounded-full transition-all group relative">
+      <Icon size={18} />
+      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-surface border border-border rounded text-[9px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
+        {label}
+      </div>
+    </button>
+  );
+}
+
+function HistoryItem({ label, active = false }: { label: string, active?: boolean }) {
+  return (
+    <div className={cn(
+      "flex items-center gap-3 px-3 py-2 rounded-md text-[10px] font-medium transition-colors cursor-pointer",
+      active ? "bg-accent/10 text-accent border-l-2 border-accent" : "text-accent-muted hover:bg-surface-hover"
+    )}>
+      <div className={cn("w-1 h-1 rounded-full", active ? "bg-accent" : "bg-border")} />
+      {label}
+    </div>
+  );
+}
